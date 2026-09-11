@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  maje-backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: maje-backend
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - REDIS_URL=redis://maje-redis:6379/0
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - MAJE_WORKSPACE=/maje
+    volumes:
+      # Persistent storage for MAJE workspace files
+      - maje_data:/maje
+      # Docker socket to allow MAJE to spawn sandbox containers
+      - /var/run/docker.sock:/var/run/docker.sock
+      # SQLite database persistence
+      - ./backend/data:/app/backend/data
+      # Configuration mount
+      - ./config:/app/config
+    depends_on:
+      - maje-redis
+    deploy:
+      resources:
+        limits:
+          memory: 2500M
+          cpus: '2.0'
+        reservations:
+          memory: 512M
+
+  maje-redis:
+    image: redis:7-alpine
+    container_name: maje-redis
+    restart: always
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+volumes:
+  maje_data:
+    name: maje_data
+  redis_data:
+    name: redis_data

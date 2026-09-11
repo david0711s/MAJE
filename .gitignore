@@ -1,0 +1,61 @@
+# ──────────────────────────────────────────────────────────
+#  MAJE – .gitignore
+#  Sicherheitskritische Dateien NIEMALS ins Repository!
+# ──────────────────────────────────────────────────────────
+
+# API-Keys und Secrets (höchste Priorität)
+config/api_keys.py
+config/api_keys.*.py
+!config/api_keys.example.py
+.env
+.env.*
+!.env.example
+secrets.py
+*secret*
+*credentials*
+
+# Node / React Native / Expo
+node_modules/
+*/node_modules/
+.expo/
+*/.expo/
+web-build/
+expo-env.d.ts
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# Databases & Runtime Data
+*.db
+*.sqlite
+*.sqlite3
+backend/data/
+dump.rdb
+
+# Python
+__pycache__/
+*/__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+.pytest_cache/
+
+# Docker & Logs
+*.log
+logs/
+
+# IDEs & OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
