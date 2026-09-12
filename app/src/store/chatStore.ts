@@ -38,8 +38,6 @@ interface ChatState {
   applyAgentEvent: (event: any) => void;
   stopActiveTask: () => Promise<void>;
   clearMessages: () => void;
-  addWSReasoningStep: (step: any) => void;
-  finishTaskFromWS: (data: any) => void;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -200,48 +198,5 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (get().autoSpeak && type === 'completed') speak(event.result || 'Fertig.');
       return;
     }
-  },
-
-  addWSReasoningStep: (data: any) => {
-    const { task_id, step } = data;
-    if (!task_id || !step) return;
-
-    set((state) => {
-      const messages = state.messages.map((msg) => {
-        if (msg.taskId === task_id) {
-          const steps = [...(msg.reasoningSteps || []), step];
-          return {
-            ...msg,
-            reasoningSteps: steps,
-            content: step.observation
-              ? `Letzte Aktion: ${step.action}\n${step.observation.slice(0, 150)}...`
-              : `Denke nach: ${step.thought || '...'}`
-          };
-        }
-        return msg;
-      });
-      return { messages };
-    });
-  },
-
-  finishTaskFromWS: (data: any) => {
-    const { task_id, result, total_cost_eur, error } = data;
-    set((state) => {
-      const messages = state.messages.map((msg) => {
-        if (msg.taskId === task_id) {
-          return {
-            ...msg,
-            content: error ? `Fehler aufgetreten:\n${error}` : (result || 'Aufgabe erfolgreich abgeschlossen.'),
-            cost_eur: total_cost_eur,
-          };
-        }
-        return msg;
-      });
-      return {
-        messages,
-        isLoading: state.activeTaskId === task_id ? false : state.isLoading,
-        activeTaskId: state.activeTaskId === task_id ? null : state.activeTaskId,
-      };
-    });
   },
 }));

@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  Switch,
   ScrollView,
   StyleSheet,
   SafeAreaView,
@@ -23,13 +22,11 @@ export const SettingsScreen: React.FC = () => {
     serverUrl,
     token,
     isConnected,
-    whitelist,
     sandbox,
     apiKeysStatus,
     updateServerUrl,
     updateToken,
     checkConnection,
-    saveWhitelist,
     saveSandbox,
     fetchSettings,
   } = useSettingsStore();
@@ -37,11 +34,6 @@ export const SettingsScreen: React.FC = () => {
   const [inputUrl, setInputUrl] = useState(serverUrl);
   const [inputToken, setInputToken] = useState(token);
   const [testingConn, setTestingConn] = useState(false);
-
-  // Whitelist local state
-  const [wlActive, setWlActive] = useState(whitelist.active);
-  const [wlNumbers, setWlNumbers] = useState(whitelist.allowed_numbers.join(', '));
-  const [wlCodes, setWlCodes] = useState(whitelist.allowed_passcodes.join(', '));
 
   // Sandbox local state
   const [memMb, setMemMb] = useState(String(sandbox.max_memory_mb));
@@ -63,12 +55,6 @@ export const SettingsScreen: React.FC = () => {
   };
 
   const handleSaveSecurity = async () => {
-    await saveWhitelist({
-      active: wlActive,
-      allowed_numbers: wlNumbers.split(',').map((s) => s.trim()).filter(Boolean),
-      allowed_passcodes: wlCodes.split(',').map((s) => s.trim()).filter(Boolean),
-    });
-
     await saveSandbox({
       max_memory_mb: parseInt(memMb, 10) || 512,
       cpu_quota: parseFloat(cpuQuota) || 1.0,
@@ -76,7 +62,7 @@ export const SettingsScreen: React.FC = () => {
       allowed_root: '/maje',
     });
 
-    Alert.alert('Gespeichert', 'Sicherheits- und Sandbox-Einstellungen gespeichert.');
+    Alert.alert('Gespeichert', 'Sandbox-Limits gespeichert.');
   };
 
   return (
@@ -150,36 +136,8 @@ export const SettingsScreen: React.FC = () => {
         {/* Central API-Key management */}
         <ApiKeysCard />
 
-        {/* Whitelist Security */}
-        <View style={styles.card}>
-          <View style={styles.rowBetween}>
-            <Text style={styles.cardTitle}>ZUGRIFFS-WHITELIST</Text>
-            <Switch
-              value={wlActive}
-              onValueChange={setWlActive}
-              trackColor={{ false: Colors.border.strong, true: Colors.accent.primary }}
-              thumbColor="#ffffff"
-            />
-          </View>
-
-          <Text style={styles.inputLabel}>ERLAUBTE TELEFONNUMMERN (KOMMAGETRENNT)</Text>
-          <TextInput
-            style={styles.input}
-            value={wlNumbers}
-            onChangeText={setWlNumbers}
-            placeholder="+491701234567, +491719876543"
-            placeholderTextColor={Colors.text.muted}
-          />
-
-          <Text style={styles.inputLabel}>ERLAUBTE PASSCODES / TOKENS</Text>
-          <TextInput
-            style={styles.input}
-            value={wlCodes}
-            onChangeText={setWlCodes}
-            placeholder="maje-master-passcode-1234"
-            placeholderTextColor={Colors.text.muted}
-          />
-        </View>
+        {/* Whitelist-Zugriffsschutz (Handynummern/Passcodes) wurde entfernt –
+            der Zugang läuft über den JWT-Token (Schritt 1). */}
 
         {/* Sandbox Limits */}
         <View style={styles.card}>

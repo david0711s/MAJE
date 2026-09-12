@@ -24,6 +24,8 @@ import { MAJEScreen } from './src/screens/MAJEScreen';
 import { AutonomyScreen } from './src/screens/AutonomyScreen';
 import { CostDashboard } from './src/screens/CostDashboard';
 import { SettingsScreen } from './src/screens/SettingsScreen';
+import { SetupScreen } from './src/screens/SetupScreen';
+import { useSettingsStore } from './src/store/settingsStore';
 
 type TabKey =
   | 'chat'
@@ -56,9 +58,18 @@ export default function App() {
   // Initialize WebSocket and Settings
   useInitializeMAJE();
 
+  const initialized = useSettingsStore((s) => s.initialized);
+  const isConnected = useSettingsStore((s) => s.isConnected);
+  const [setupSkipped, setSetupSkipped] = useState(false);
+
   const [activeTab, setActiveTab] = useState<TabKey>('chat');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [soulSubTab, setSoulSubTab] = useState<'soul' | 'memory'>('soul');
+
+  // Erst-Einrichtung automatisch anzeigen, solange keine Verbindung besteht
+  if (initialized && !isConnected && !setupSkipped) {
+    return <SetupScreen onDone={() => setSetupSkipped(true)} />;
+  }
 
   const handleOpenTaskDetail = (taskId: string) => {
     setSelectedTaskId(taskId);

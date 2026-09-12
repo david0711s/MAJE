@@ -18,6 +18,7 @@ interface SettingsState {
   serverUrl: string;
   token: string;
   isConnected: boolean;
+  initialized: boolean;
   whitelist: WhitelistConfig;
   sandbox: SandboxConfig;
   apiKeysStatus: Array<{ provider: string; configured: boolean }>;
@@ -37,6 +38,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   serverUrl: 'http://localhost:8000',
   token: '',
   isConnected: false,
+  initialized: false,
   whitelist: {
     active: true,
     allowed_numbers: [],
@@ -60,6 +62,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     if (get().isConnected) {
       await get().fetchSettings();
     }
+    set({ initialized: true });
   },
 
   updateServerUrl: async (url: string) => {

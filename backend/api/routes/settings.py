@@ -18,7 +18,7 @@ from api.middleware.whitelist import (
     save_access_config,
 )
 from api.middleware.auth import create_token
-from sandbox.sandbox_config import get_limits, update_limits
+from sandbox.sandbox_config import get_limits, network_allowed, update_limits
 from config import api_keys as ak
 from config import key_loader
 from config.api_keys import API_PROVIDERS, COST_SETTINGS
@@ -180,6 +180,25 @@ def _reload_keys() -> dict[str, list[str]]:
     data = key_loader.load_keys()
     key_loader.apply_keys(ak.API_PROVIDERS, ak.EXTERNAL_SERVICES, data)
     return data
+
+
+@router.get("/status")
+async def get_status():
+    """Kompakter Einrichtungs-Status (für den Setup-Assistenten in der App)."""
+    current = key_loader.collect_current(ak.API_PROVIDERS, ak.EXTERNAL_SERVICES)
+    llm_ids = ["gemini", "groq", "deepseek", "openai", "anthropic", "mistral", "together"]
+    llm_configured = [pid for pid in llm_ids if current.get(pid)]
+    return {
+        "server": "ok",
+        "version": "3.0.0",
+        "setup_complete": bool(llm_configured),
+        "llm_keys_configured": bool(llm_configured),
+        "configured_providers": llm_configured,
+        "search_configured": bool(current.get("tavily") or current.get("serper") or current.get("brave_search")),
+        "voice_configured": bool(current.get("groq")),
+        "encryption_enabled": key_loader.encryption_enabled(),
+        "sandbox_network": network_allowed(),
+    }
 
 
 @router.get("/keys")
