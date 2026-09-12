@@ -205,5 +205,25 @@ Danach startet MAJE wie eine normale App – Updates erscheinen automatisch.
 | Sandbox: „Docker not available“ | `docker compose ps` prüfen (maje-docker-proxy läuft?). Notfalls Fallback in deploy/README §9. |
 | `npm install` Fehler | `node_modules` löschen und erneut `npm install`; Node ≥ 20 verwenden. |
 | Port 8000 von außen nicht erreichbar | Firewall: `ufw allow 8000/tcp` (bzw. IONOS-Firewall-Regel). |
+| `maje-proxy` startet nicht: „address already in use“ (Port 80/443) | Ein anderer Dienst belegt den Port. Siehe unten. |
+
+### Port 80/443 belegt – wer ist es?
+```bash
+ss -ltnp | grep -E ':80 |:443 '                                        # Prozess
+docker ps --format '{{.Names}} | {{.Ports}}' | grep -E ':80|:443'      # Container
+```
+- **Host-Dienst** stoppen (falls nginx/apache vorhanden):
+  ```bash
+  systemctl stop nginx apache2 2>/dev/null; systemctl disable nginx apache2 2>/dev/null
+  ```
+- **Anderer Container**: `docker stop <name>` und in dessen Compose-Datei die `ports:` ändern.
+
+Danach erneut starten:
+```bash
+cd /opt/MAJE && docker compose --profile proxy up -d
+curl -sI https://deine-domain/health | head -1      # erwartet: HTTP/2 200
+```
+
+> **Alternative ohne offene Ports:** Tailscale Funnel (Schritt 4B) – benötigt Port 80/443 **nicht**.
 | Keys werden nicht übernommen | In der App „API-KEYS“ speichern oder `/opt/MAJE/data/keys/keys.json` prüfen; Logs: `docker compose logs -f maje-backend`. |
 
