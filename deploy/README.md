@@ -64,3 +64,71 @@ docker compose logs -f maje-backend          # Logs
 docker compose ps                            # Status
 docker compose down && docker compose up -d --build   # Update
 ```
+
+---
+
+## 8. API-Keys verwalten (ohne sie weiterzugeben)
+
+Es gibt **drei** Wege – alle landen zentral in der Keys-Datei
+`/opt/MAJE/data/keys/keys.json` (im Container `/maje/keys/keys.json`, persistent & schreibbar):
+
+**A) In der App (empfohlen, kein SSH nötig):**
+Settings → **API-KEYS** → pro Anbieter Key eintragen. Wird sofort (ohne Neustart)
+übernommen. Anzeige nur maskiert. Keys verlassen nie deinen Server – der Agent
+sieht nur maskierte Werte und kann sie nicht auslesen.
+
+**B) Datei direkt (SSH/Editor):**
+```bash
+nano /opt/MAJE/data/keys/keys.json
+```
+Format (Vorlage im Repo: `config/keys.example.json`):
+```json
+{
+  "gemini": ["AIzaSy...", "AIzaSy..."],
+  "groq":   ["gsk_..."],
+  "tavily": ["tvly-..."]
+}
+```
+Die Datei wird automatisch mit `chmod 600` (Eigentümer UID 1000) angelegt.
+
+**C) `.env`** (je EIN Key pro Variable): `GEMINI_API_KEY`, `GROQ_API_KEY`, `TAVILY_API_KEY`, …
+
+### Verschlüsselung der Keys-Datei
+- Aktivieren: `GET /settings/keys/newkey` → Wert als `MAJE_KEYS_KEY` in `.env` → Container neu starten
+  → in der App „Verschlüsselung aktivieren". Danach ist `keys.json` ein Fernet-Blob.
+- **Ehrliche Einschätzung:** Verschlüsselung *at rest* schützt nur, wenn jemand die Datei,
+  aber **nicht** die `.env`/den Server hat. Auf einem Einzelserver bringt sie begrenzten
+  Zusatznutzen. Der größte Schutz ist: Datei `chmod 600`, **nicht** ins Git, und Keys nie
+  mit Dritten (auch nicht mit der KI) teilen. Genau das ist hier umgesetzt.
+- Ohne `MAJE_KEYS_KEY` funktioniert alles normal (Klartext) – Verschlüsselung ist optional.
+
+---
+
+## 9. Sandbox-Sicherheit (Docker-Socket-Proxy)
+Das Backend hat **keinen** direkten Root-Zugriff auf `/var/run/docker.sock` mehr.
+Stattdessen läuft ein eingeschränkter Proxy (`maje-docker-proxy`), der nur
+Container anlegen/starten/stoppen/killen und Images pullen darf – aber **kein**
+`exec`, keine Netzwerke/Volumes/Swarm-Änderungen.
+
+Falls die Sandbox wider Erwarten nicht funktioniert, in der `.env`/Compose testweise
+den direkten Socket verwenden (weniger sicher):
+```yaml
+# beim maje-backend-Service
+environment:
+  - DOCKER_HOST=unix:///var/run/docker.sock
+volumes:
+  - /var/run/docker.sock:/var/run/docker.sock
+```
+
+---
+
+## 10. App oder Website? (kurz)
+- Es ist **eine** Codebasis (Expo/React Native). Daraus entsteht **beides**:
+  - **Native App** → Android **APK** (bzw. iOS-Build). Installation/Aktualisierung nötig.
+  - **Web/PWA** → statische Dateien (`npx expo export --platform web`) → zu **Netlify** hochladen.
+    Auf dem Handy „Zum Startbildschirm hinzufügen" = fühlt sich wie eine App an, Updates sofort.
+- **Am einfachsten:** die **PWA auf Netlify** (nichts installieren, jedes Handy). Sie verbindet
+  sich mit derselben Backend-URL. APK nur nötig, wenn du echte Push/Native-Features brauchst.
+- Alle App-Module (Datei-Upload, Mikrofon, Vorlesen) sind in Expo Go enthalten; in der
+  PWA greift für Sprache automatisch die Web-Speech-API des Browsers.
+

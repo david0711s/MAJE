@@ -69,7 +69,8 @@ Token erzeugen: `curl -s http://127.0.0.1:8000/settings/token` (nur von localhos
 
 ## 🖥️ Deployment auf dem IONOS-Server (`/opt/MAJE`)
 
-Siehe **[deploy/README.md](deploy/README.md)**. Kurz:
+**📋 Schritt-für-Schritt-Anleitung (Server + Netlify): [deploy/SCHRITT-FUER-SCHRITT.md](deploy/SCHRITT-FUER-SCHRITT.md)**
+Details & Hintergründe: **[deploy/README.md](deploy/README.md)**. Kurz:
 
 ```bash
 sudo mkdir -p /opt/MAJE && cd /opt/MAJE      # Repo hierhin kopieren
@@ -96,11 +97,21 @@ auf die Netlify-Domain.
 
 ---
 
-## 🔑 API-Keys
+## 🔑 API-Keys (zentral & skalierbar)
 
-In `config/api_keys.py` (Reihenfolge = Fallback-Reihenfolge). Für **kostenlose** Nutzung:
-Gemini (Free) → Groq (Free). Alternativ per `.env` (`GEMINI_API_KEY`, `GROQ_API_KEY`, `TAVILY_API_KEY`).
-Websuche nutzt Tavily, Serper oder Brave (`EXTERNAL_SERVICES`).
+Alle Keys liegen an **einer** Stelle (beliebig viele pro Anbieter):
+im Container `/maje/keys/keys.json` (= auf dem Server `/opt/MAJE/data/keys/keys.json`),
+lokal in der Entwicklung `config/keys.json`. Drei Wege, sie zu setzen – ohne sie
+jemals mit Dritten zu teilen:
+
+1. **App:** Settings → **API-KEYS** → Key eintragen (sofort aktiv, nur maskiert angezeigt).
+2. **Datei:** Keys-Datei direkt bearbeiten (Vorlage `config/keys.example.json`, `chmod 600`).
+3. **`.env`:** `GEMINI_API_KEY`, `GROQ_API_KEY`, `TAVILY_API_KEY`, …
+
+Reihenfolge in `config/api_keys.py` bestimmt den Fallback (Gemini → Groq → DeepSeek → …).
+Für kostenlose Nutzung: Gemini (Free) + Groq (Free, auch Whisper-Sprache).
+Die Datei ist **gitignored** und kann optional verschlüsselt werden (`MAJE_KEYS_KEY`) –
+Details unter [deploy/README.md](deploy/README.md#8-api-keys-verwalten-ohne-sie-weiterzugeben).
 
 ---
 
@@ -108,9 +119,11 @@ Websuche nutzt Tavily, Serper oder Brave (`EXTERNAL_SERVICES`).
 
 - Sandbox: isolierte, gehärtete Container; Pentest-Tools nur gegen whitelistete Ziele.
 - Auth: JWT für alle Routen, WebSocket nur mit Token; `/settings/token` nur von localhost.
-- **Wichtig**: Der Backend-Container benötigt `/var/run/docker.sock` (für Sandbox-Container).
-  Exponiere MAJE deshalb nicht ungeschützt ins Internet (Tunnel/Tailscale + Token verwenden)
-  und setze ein langes `JWT_SECRET`.
+- **Docker-Socket-Proxy**: Das Backend hat **keinen** direkten Root-Socket-Zugriff mehr;
+  Sandbox-Container werden über einen eingeschränkten Proxy erzeugt (kein `exec`, keine
+  Netzwerk-/Volume-/Swarm-Änderungen erlaubt).
+- **Wichtig**: Exponiere MAJE trotzdem nicht ungeschützt ins Internet
+  (Tunnel/Tailscale + Token verwenden) und setze ein langes `JWT_SECRET`.
 
 ---
 

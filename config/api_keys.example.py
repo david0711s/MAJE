@@ -272,3 +272,16 @@ INTERNAL: dict[str, Any] = {
     # Max. Output-Tokens pro Request (0 = Provider-Default)
     "max_tokens_per_request":   8192,
 }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  KEYS AUS config/keys.json + .env MERGEN (optional, kann verschlüsselt sein)
+#  -> Alle Keys können zentral & übersichtlich in config/keys.json eingetragen
+#     werden (App-Screen "API-Keys" oder Datei direkt). Siehe config/key_loader.py
+# ─────────────────────────────────────────────────────────────────────────────
+try:
+    from .key_loader import apply_keys as _apply_keys, load_keys as _load_keys  # type: ignore
+    _apply_keys(API_PROVIDERS, EXTERNAL_SERVICES, _load_keys())
+except Exception:
+    pass
+

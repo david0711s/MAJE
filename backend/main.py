@@ -36,7 +36,7 @@ MAJE_ROOT = os.getenv("MAJE_ROOT", "/maje")
 
 
 def _ensure_dirs():
-    for sub in ("scripts", "tools", "skills", "files", "workspace", "soul/memory"):
+    for sub in ("scripts", "tools", "skills", "files", "workspace", "soul/memory", "keys"):
         Path(MAJE_ROOT, sub).mkdir(parents=True, exist_ok=True)
 
 

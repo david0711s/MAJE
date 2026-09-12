@@ -16,6 +16,7 @@ import { Typography } from '../theme/typography';
 import { Spacing } from '../theme/spacing';
 import { useSettingsStore } from '../store/settingsStore';
 import { ApiStatusBadge } from '../components/ApiStatusBadge';
+import { ApiKeysCard } from '../components/ApiKeysCard';
 
 export const SettingsScreen: React.FC = () => {
   const {
@@ -145,6 +146,9 @@ export const SettingsScreen: React.FC = () => {
             )}
           </View>
         </View>
+
+        {/* Central API-Key management */}
+        <ApiKeysCard />
 
         {/* Whitelist Security */}
         <View style={styles.card}>

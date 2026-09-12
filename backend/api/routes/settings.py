@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime
 from typing import Optional
 
@@ -18,6 +19,8 @@ from api.middleware.whitelist import (
 )
 from api.middleware.auth import create_token
 from sandbox.sandbox_config import get_limits, update_limits
+from config import api_keys as ak
+from config import key_loader
 from config.api_keys import API_PROVIDERS, COST_SETTINGS
 
 router = APIRouter()
@@ -157,3 +160,136 @@ async def get_token(request: Request):
     if client_host not in ("127.0.0.1", "::1", "localhost"):
         raise HTTPException(403, "Token generation is only allowed from localhost (use SSH port-forward).")
     return {"token": create_token()}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  API-KEYS (zentral, skalierbar, optional verschlüsselt)
+#  Keys werden in config/keys.json gespeichert (chmod 600) und zur Laufzeit
+#  in die Provider-Config gemerged – kein Neustart/Build nötig.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _encryption_available() -> bool:
+    try:
+        from cryptography.fernet import Fernet  # noqa: F401
+        return True
+    except Exception:
+        return False
+
+
+def _reload_keys() -> dict[str, list[str]]:
+    data = key_loader.load_keys()
+    key_loader.apply_keys(ak.API_PROVIDERS, ak.EXTERNAL_SERVICES, data)
+    return data
+
+
+@router.get("/keys")
+async def get_api_keys():
+    """List all providers with masked keys + encryption status."""
+    current = key_loader.collect_current(ak.API_PROVIDERS, ak.EXTERNAL_SERVICES)
+    providers = []
+    for p in ak.API_PROVIDERS:
+        pid = p["provider_id"]
+        keys = current.get(pid, [])
+        providers.append({
+            "provider_id": pid,
+            "name": p.get("name", pid),
+            "label": key_loader.PROVIDER_LABELS.get(pid, p.get("name", pid)),
+            "configured": bool(keys),
+            "count": len(keys),
+            "keys": [key_loader.mask(k) for k in keys],
+            "is_free_tier": p.get("is_free_tier", False),
+            "enabled": p.get("enabled", True),
+        })
+    for name, cfg in ak.EXTERNAL_SERVICES.items():
+        keys = current.get(name, [])
+        providers.append({
+            "provider_id": name,
+            "name": cfg.get("name", name),
+            "label": key_loader.PROVIDER_LABELS.get(name, name),
+            "configured": bool(keys),
+            "count": len(keys),
+            "keys": [key_loader.mask(k) for k in keys],
+            "is_free_tier": False,
+            "enabled": cfg.get("enabled", False),
+        })
+    return {
+        "providers": providers,
+        "encryption": {
+            "available": _encryption_available(),
+            "enabled": key_loader.encryption_enabled(),
+            "key_configured": bool(os.getenv("MAJE_KEYS_KEY")),
+        },
+        "file": str(key_loader.keys_file_path()),
+    }
+
+
+class KeyUpdate(BaseModel):
+    provider_id: str
+    keys: list[str] = []
+    replace: bool = False
+
+
+@router.post("/keys")
+async def set_api_keys(body: KeyUpdate):
+    """Add (or replace) keys for a provider and hot-reload them."""
+    data = key_loader.load_keys(include_env=False)  # only the file, not env
+    new_keys = [k.strip() for k in body.keys if k and k.strip()]
+
+    if body.replace:
+        data[body.provider_id] = new_keys
+    else:
+        data.setdefault(body.provider_id, [])
+        for k in new_keys:
+            if k not in data[body.provider_id]:
+                data[body.provider_id].append(k)
+
+    key_loader.save_keys(data)
+    _reload_keys()
+    return {"updated": True, "provider_id": body.provider_id, "count": len(data.get(body.provider_id, []))}
+
+
+@router.delete("/keys/{provider_id}")
+async def delete_api_keys(provider_id: str, index: Optional[int] = None):
+    """Remove all keys of a provider (or a single key via ?index=)."""
+    data = key_loader.load_keys(include_env=False)
+    if provider_id not in data:
+        raise HTTPException(404, "Keine Keys für diesen Provider gespeichert.")
+    if index is None:
+        data.pop(provider_id, None)
+    else:
+        if 0 <= index < len(data[provider_id]):
+            data[provider_id].pop(index)
+        if not data.get(provider_id):
+            data.pop(provider_id, None)
+    key_loader.save_keys(data)
+    _reload_keys()
+    return {"deleted": True, "provider_id": provider_id}
+
+
+class EncryptionToggle(BaseModel):
+    enabled: bool
+
+
+@router.post("/keys/encryption")
+async def set_encryption(body: EncryptionToggle):
+    """Re-save the keys file encrypted (needs MAJE_KEYS_KEY) or as plaintext."""
+    if body.enabled and not key_loader.encryption_enabled():
+        raise HTTPException(
+            400,
+            "Verschlüsselung nicht möglich: setze MAJE_KEYS_KEY in der .env "
+            "(Key erzeugen mit GET /settings/keys/newkey).",
+        )
+    data = key_loader.load_keys(include_env=False)
+    key_loader.save_keys(data, encrypt=body.enabled)
+    _reload_keys()
+    return {"updated": True, "encrypted": body.enabled and key_loader.encryption_enabled()}
+
+
+@router.get("/keys/newkey")
+async def new_encryption_key():
+    """Generate a Fernet key for MAJE_KEYS_KEY (put it into the server .env)."""
+    if not _encryption_available():
+        raise HTTPException(400, "cryptography ist nicht installiert.")
+    key = key_loader.generate_key()
+    return {"key": key, "env_line": f"MAJE_KEYS_KEY={key}"}
+

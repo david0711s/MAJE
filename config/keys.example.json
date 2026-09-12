@@ -1,0 +1,24 @@
+{
+  "_hinweis": "Alle API-Keys zentral & skalierbar eintragen. Beliebige Anzahl pro Provider (Liste). Diese Datei nach config/keys.json kopieren. Kann optional verschlüsselt werden (siehe MAJE_KEYS_KEY in .env).",
+  "_hinweis_2": "Alternativ: Keys direkt in der App unter Settings -> API-KEYS eintragen (wird automatisch nach config/keys.json geschrieben).",
+
+  "gemini": [
+    "AIzaSy...DEIN_GEMINI_KEY_1",
+    "AIzaSy...DEIN_GEMINI_KEY_2"
+  ],
+  "groq": [
+    "gsk_...DEIN_GROQ_KEY_1"
+  ],
+  "deepseek": [],
+  "openai": [],
+  "anthropic": [],
+  "mistral": [],
+  "together": [],
+
+  "tavily": [
+    "tvly-...DEIN_TAVILY_KEY_1"
+  ],
+  "serper": [],
+  "brave_search": [],
+  "firecrawl": []
+}

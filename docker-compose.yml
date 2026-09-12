@@ -28,7 +28,7 @@ services:
       - SQLITE_PATH=/maje/soul/maje.db
       - REDIS_HOST=maje-redis
       - REDIS_PORT=6379
-      - DOCKER_HOST=unix:///var/run/docker.sock
+      - DOCKER_HOST=tcp://maje-docker-proxy:2375
       - JWT_SECRET=${JWT_SECRET:?Bitte JWT_SECRET in .env setzen}
       - ALLOW_ORIGINS=${ALLOW_ORIGINS:-*}
       - SANDBOX_MAX_MEMORY_MB=${SANDBOX_MAX_MEMORY_MB:-512}
@@ -39,17 +39,40 @@ services:
     volumes:
       # Persistenter MAJE-Workspace (Soul, Memory, Files, SQLite)
       - /opt/MAJE/data:/maje
-      # API-Keys / config (config/api_keys.py)
+      # API-Keys / config (config/api_keys.py, config/keys.json)
       - /opt/MAJE/config:/app/config
-      # Docker-Socket, damit MAJE Sandbox-Container starten kann
-      - /var/run/docker.sock:/var/run/docker.sock
-    group_add:
-      # GID der Host-Gruppe "docker" (siehe .env -> DOCKER_GID)
-      - "${DOCKER_GID:-999}"
-    mem_limit: 2500m
-    cpus: "2.0"
+      # HINWEIS: Kein direkter Docker-Socket mehr! Der Zugriff läuft über
+      # den eingeschränkten "maje-docker-proxy" (siehe unten).
     depends_on:
       - maje-redis
+      - maje-docker-proxy
+    mem_limit: 2500m
+    cpus: "2.0"
+
+  maje-docker-proxy:
+    # Eingeschränkter Zugriff auf den Docker-Socket (statt Root-Socket im Backend).
+    image: tecnativa/docker-socket-proxy:latest
+    container_name: maje-docker-proxy
+    restart: unless-stopped
+    environment:
+      # Nur das, was die Sandbox wirklich braucht:
+      - CONTAINERS=1        # Container anlegen/ansehen
+      - IMAGES=1            # Sandbox-Images prüfen/pullen
+      - POST=1              # create/start/wait/logs/remove (POST/DELETE)
+      - ALLOW_START=1
+      - ALLOW_STOP=1
+      - ALLOW_RESTARTS=1    # enthält kill
+      # Bewusst NICHT erlaubt:
+      - EXEC=0              # kein "docker exec" (kein Betreten von Containern)
+      - NETWORKS=0
+      - VOLUMES=0
+      - SWARM=0
+      - SYSTEM=0
+      - BUILD=0
+      - AUTH=0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    # Nur intern im Compose-Netz erreichbar (kein "ports:"!)
 
   maje-redis:
     image: redis:7-alpine

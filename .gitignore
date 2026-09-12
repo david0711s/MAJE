@@ -7,6 +7,9 @@
 config/api_keys.py
 config/api_keys.*.py
 !config/api_keys.example.py
+config/keys.json
+config/keys.*.json
+!config/keys.example.json
 .env
 .env.*
 !.env.example

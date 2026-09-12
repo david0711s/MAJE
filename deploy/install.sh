@@ -13,7 +13,7 @@ command -v docker >/dev/null 2>&1 || { echo "Fehler: Docker ist nicht installier
 
 # 1) Verzeichnisse anlegen (Daten liegen NICHT in /var/lib/docker, sondern in /opt/MAJE)
 mkdir -p "${APP_DIR}"/{data,redis,caddy/data,caddy/config,config}
-mkdir -p "${APP_DIR}"/data/{scripts,tools,skills,files,workspace,soul/memory}
+mkdir -p "${APP_DIR}"/data/{scripts,tools,skills,files,workspace,soul/memory,keys}
 
 # 2) Ownership – der Backend-Container läuft als UID 1000 (User "maje")
 chown -R 1000:1000 "${APP_DIR}/data" "${APP_DIR}/redis"
@@ -22,16 +22,18 @@ chown -R 1000:1000 "${APP_DIR}/data" "${APP_DIR}/redis"
 if [ ! -f "${APP_DIR}/.env" ]; then
   cp "${APP_DIR}/.env.example" "${APP_DIR}/.env"
   SECRET="$(openssl rand -hex 32)"
-  DG="$(getent group docker | cut -d: -f3 || echo 999)"
   sed -i "s|^JWT_SECRET=.*|JWT_SECRET=${SECRET}|" "${APP_DIR}/.env"
-  sed -i "s|^DOCKER_GID=.*|DOCKER_GID=${DG}|" "${APP_DIR}/.env"
-  echo "==> .env erstellt (JWT_SECRET zufällig, DOCKER_GID=${DG})"
+  echo "==> .env erstellt (JWT_SECRET zufällig generiert)"
 fi
 
-# 4) config/api_keys.py aus Vorlage, falls noch nicht vorhanden
+# 4) config/api_keys.py + config/keys.json aus Vorlagen
 if [ ! -f "${APP_DIR}/config/api_keys.py" ]; then
   cp "${APP_DIR}/config/api_keys.example.py" "${APP_DIR}/config/api_keys.py"
-  echo "==> config/api_keys.py angelegt – bitte Gemini/Groq-Keys eintragen!"
+  echo "==> config/api_keys.py angelegt (Keys besser in der App oder keys.json pflegen)."
+fi
+if [ ! -f "${APP_DIR}/data/keys/keys.json" ]; then
+  echo "==> Keys-Datei wird beim ersten Eintragen automatisch erstellt: ${APP_DIR}/data/keys/keys.json"
+  echo "    Am einfachsten: in der App unter Settings -> API-KEYS eintragen."
 fi
 
 # 5) Backend + Redis starten
