@@ -16,8 +16,10 @@ from loguru import logger
 JWT_SECRET = os.getenv("JWT_SECRET", "CHANGE_ME_IN_PRODUCTION_USE_LONG_RANDOM_STRING")
 JWT_ALGORITHM = "HS256"
 
-# Routes that don't require auth
-PUBLIC_PATHS = {"/health", "/docs", "/redoc", "/openapi.json"}
+# Routes that don't require auth.
+# /settings/token is intentionally public BUT restricted to localhost inside the handler,
+# so the very first JWT can be bootstrapped without a chicken-and-egg problem.
+PUBLIC_PATHS = {"/health", "/docs", "/redoc", "/openapi.json", "/settings/token"}
 
 
 class AuthMiddleware(BaseHTTPMiddleware):

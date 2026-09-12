@@ -15,19 +15,29 @@ class RedisClient:
         self._client: Optional[aioredis.Redis] = None
 
     async def connect(self):
-        host = os.getenv("REDIS_HOST", "redis")
-        port = int(os.getenv("REDIS_PORT", "6379"))
-        password = os.getenv("REDIS_PASSWORD", None)
-        self._client = aioredis.Redis(
-            host=host, port=port, password=password,
-            decode_responses=False,
-            socket_connect_timeout=5,
-        )
+        # Prefer a full REDIS_URL (redis://[:password@]host:port/db) if provided,
+        # otherwise fall back to REDIS_HOST / REDIS_PORT / REDIS_PASSWORD.
+        url = os.getenv("REDIS_URL")
+        if url:
+            self._client = aioredis.from_url(
+                url,
+                decode_responses=False,
+                socket_connect_timeout=5,
+            )
+        else:
+            host = os.getenv("REDIS_HOST", "redis")
+            port = int(os.getenv("REDIS_PORT", "6379"))
+            password = os.getenv("REDIS_PASSWORD", None)
+            self._client = aioredis.Redis(
+                host=host, port=port, password=password,
+                decode_responses=False,
+                socket_connect_timeout=5,
+            )
         await self.ping()
         # Inject into cost_tracker
         from core.cost_tracker import cost_tracker
         cost_tracker._set_redis(self._client)
-        logger.success(f"✅ Redis connected at {host}:{port}")
+        logger.success(f"✅ Redis connected ({url or 'host/port'})")
 
     async def disconnect(self):
         if self._client:

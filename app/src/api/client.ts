@@ -64,3 +64,72 @@ export const api = {
     return res.data;
   },
 };
+
+/**
+ * Upload a picked/recorded file to the backend.
+ * Works both in React Native (uri) and on web (File object).
+ */
+export async function uploadFile(
+  file: { uri?: string; file?: any; name: string; mimeType?: string },
+  subdir: string = 'files',
+  taskId?: string,
+): Promise<any> {
+  const base = await getServerUrl();
+  const token = await getToken();
+
+  const form = new FormData();
+  if (file.file) {
+    // Web: real File object
+    form.append('file', file.file, file.name);
+  } else {
+    // React Native: { uri, name, type }
+    form.append('file', {
+      uri: file.uri,
+      name: file.name,
+      type: file.mimeType || 'application/octet-stream',
+    } as any);
+  }
+  form.append('subdir', subdir);
+  if (taskId) form.append('task_id', taskId);
+
+  const res = await axios.post(`${base}/files/upload`, form, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    timeout: 180000,
+  });
+  return res.data;
+}
+
+/** Transcribe an audio recording via the backend (Groq Whisper, free tier). */
+export async function transcribeAudio(
+  uri: string,
+  name: string = 'recording.m4a',
+  mimeType: string = 'audio/m4a',
+  language?: string,
+): Promise<{ text: string; provider?: string }> {
+  const base = await getServerUrl();
+  const token = await getToken();
+
+  const form = new FormData();
+  form.append('file', { uri, name, type: mimeType } as any);
+  if (language) form.append('language', language);
+
+  const res = await axios.post(`${base}/voice/transcribe`, form, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    timeout: 120000,
+  });
+  return res.data;
+}
+
+/** Read a text file from the backend for preview. */
+export async function readRemoteFile(path: string): Promise<{ content: string; name: string; size: number }> {
+  const client = await getApiClient();
+  const res = await client.get('/files/view', { params: { path } });
+  return res.data;
+}
+

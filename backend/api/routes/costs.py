@@ -1,5 +1,8 @@
 """MAJE – Costs Routes"""
+from __future__ import annotations
+
 from fastapi import APIRouter
+
 from core.cost_tracker import cost_tracker
 from config.api_keys import COST_SETTINGS
 
@@ -8,14 +11,21 @@ router = APIRouter()
 
 @router.get("/today")
 async def get_today_costs():
-    total_eur = await cost_tracker.get_today_total_eur()
-    breakdown = await cost_tracker.get_daily_breakdown()
-    limit = COST_SETTINGS.get("daily_limit_eur", 2.0)
+    """App-compatible daily cost summary."""
+    return await cost_tracker.get_today_costs()
+
+
+@router.get("/month")
+async def get_month_costs():
+    """Aggregated 30-day cost summary."""
+    monthly = await cost_tracker.get_monthly_totals()
+    total_eur = round(sum(float(d.get("cost_eur", 0.0)) for d in monthly), 6)
+    daily_limit = float(COST_SETTINGS.get("daily_limit_eur", 2.0))
     return {
-        "total_eur": round(total_eur, 4),
-        "limit_eur": limit,
-        "used_pct": round((total_eur / limit * 100) if limit > 0 else 0, 1),
-        "breakdown": breakdown,
+        "total_eur": total_eur,
+        "monthly_limit_eur": round(daily_limit * 30, 2),
+        "total_tokens": 0,
+        "days": monthly,
     }
 
 
@@ -26,5 +36,4 @@ async def get_monthly_costs():
 
 @router.get("/history/{date}")
 async def get_costs_for_date(date: str):
-    breakdown = await cost_tracker.get_daily_breakdown(target_date=date)
-    return {"date": date, "breakdown": breakdown}
+    return {"date": date, "breakdown": await cost_tracker.get_daily_breakdown(target_date=date)}

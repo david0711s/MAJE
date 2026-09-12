@@ -1,159 +1,122 @@
 # MAJE – Persönlicher, selbstlernender AI-Agent (v3)
 
-MAJE ist ein persönlicher, hochgradig autonomer und selbstlernender AI-Agent, bestehend aus einem performanten **Python FastAPI Backend** (optimiert für 4GB RAM IONOS Cloud-Server) und einer modernen **React Native / Expo App** (iOS & Android) im edlen **Linear / Raycast / Arc Browser Dark-Theme**.
+MAJE ist ein persönlicher, autonomer und selbstlernender AI-Agent:
+ein **Python FastAPI Backend** (optimiert für kleine Server) + eine **React Native / Expo App**
+(iOS, Android **und Web/PWA**) im Linear/Raycast-Dark-Theme.
 
 ---
 
 ## 🌟 Hauptfunktionen
 
-1. **ReAct-Agenten-Loop (Reasoning → Action → Observation)**:
-   - Ausführung komplexer mehrschrittiger Aufgaben mit Gedankenprotokoll, Tool-Nutzung und dynamischer Selbstkorrektur.
-   - Live-Streaming jedes Einzelschritts über WebSockets direkt in die Mobile App.
-2. **Drei Betriebsmodi**:
-   - 💬 **Chat-Modus**: Schneller, direkter Dialog ohne Tool-Overhead.
-   - ⚡ **Agenten-Modus**: Autonome Ausführung mit Code-Sandbox, Webrecherche, Terminal und Dateiverwaltung.
-   - 🤖 **Autonomie-Modus**: Kontinuierliche Hintergrundschleife auf dem IONOS-Server für selbstständiges Lernen, Netzwerk-Audits und Systemoptimierung mit einstellbarem Budget-Limit.
-3. **Skalierbares Multi-Provider API-Key Management (`config/api_keys.py`)**:
-   - Beliebig viele API-Keys pro Provider hinzufügen (OpenAI, Anthropic, Google Gemini, DeepSeek, Groq, Mistral, Ollama, Tavily etc.).
-   - Automatisches Failover bei Rate-Limits (429) oder Ausfällen.
-4. **Isolierte Docker-Sandbox**:
-   - Sichere Ausführung von generiertem Python/Bash-Code in einem ressourcenbegrenzten Container (Standard: 512MB RAM, 1 CPU Core).
-5. **Persistentes Langzeitgedächtnis & Soul**:
-   - Vektorielles & relationales Gedächtnis zur Speicherung persönlicher Fakten.
-   - Editierbare "Soul" (Persönlichkeit, Werte, Verhaltensweisen und System-Prompt).
-6. **"Für MAJE" Dynamisches Dashboard**:
-   - MAJE kann über das Tool `add_ui_button` / `add_ui_widget` selbstständig eigene Buttons und Widgets im Interface erstellen!
-7. **Echtzeit-Kosten- & Token-Tracker**:
-   - Berechnet sekundengenau die Kosten in Euro (€) basierend auf den verbrauchten Prompt- und Completion-Tokens mit konfigurierbarem Tageslimit.
+1. **ReAct-Agenten-Loop** (Reasoning → Action → Observation) mit Live-Streaming über WebSockets.
+2. **Drei Modi**: 💬 Chat, ⚡ Agent, 🤖 Autonomie (Hintergrund-Lernen mit Budget-Limit).
+3. **Multi-Provider-Fallback** (`config/api_keys.py`): Gemini → Groq → DeepSeek → … mit Key-Rotation,
+   automatischem Failover bei 429/Fehlern und Kosten-Tracking in Euro.
+4. **Gehärtete Docker-Sandbox**: eigener Wegwerf-Container pro Ausführung, non-root, `cap_drop: ALL`,
+   `no-new-privileges`, Read-only-Rootfs, `pids_limit`, Netzwerk standardmäßig aus,
+   RAM/CPU/Timeout-Limits (zur Laufzeit über die App einstellbar).
+5. **Dateien**: Datei-Upload aus der App (`/files/upload`), In-App-Vorschau (`/files/view`),
+   Download/Teilen, Agent-Tools `read_file` / `write_file`.
+6. **Sprache (kostenlos)**: 🎤 Aufnahme → Transkription über **Groq Whisper (Free-Tier)**;
+   🔊 Vorlesen der Antworten per **On-Device-TTS** (`expo-speech`). In der PWA zusätzlich
+   Web-Speech-API (Browser).
+7. **Memory & Soul**: strukturierte Persönlichkeit (soul.json + soul.md) und Langzeitgedächtnis.
+8. **„Für MAJE" Dashboard**: MAJE erstellt selbst Buttons/Widgets (`create_ui_element`).
+9. **Echtzeit-Kosten-Tracker** mit Tageslimit (Chat/Agent/Autonomie).
+10. **Auth**: JWT-Pflicht auf allen HTTP-Routen, WebSocket nur mit gültigem Token,
+    Access-Whitelist (Nummern/Passcodes), Pentest-Ziel-Whitelist als Hard-Gate.
 
 ---
 
-## 📁 Projektstruktur
+## 📁 Projektstruktur (Auszug)
 
 ```
 MAJE/
-├── config/
-│   ├── __init__.py
-│   └── api_keys.py              # Zentrale, beliebig skalierbare API-Key Konfiguration
+├── config/api_keys.py           # Provider + Keys + Kosten
 ├── backend/
-│   ├── Dockerfile               # Production Dockerfile
-│   ├── requirements.txt         # FastAPI, Uvicorn, LangChain/Tools, Docker, Redis
-│   ├── main.py                  # API Entrypoint mit CORS und Middleware
-│   ├── api/
-│   │   ├── middleware/          # JWT-Auth & Zugriffs-Whitelist
-│   │   └── routes/              # Chat, Tasks, Files, Soul, UI, Settings, Costs, Autonomy
-│   ├── core/
-│   │   ├── agent_loop.py        # Asynchroner ReAct-Loop
-│   │   ├── llm_client.py        # Multi-Provider Router mit Fallback-Kette
-│   │   ├── cost_tracker.py      # Token- und Euro-Kostenrechnung
-│   │   └── task_state.py        # Persistenter Task-State Manager
-│   ├── sandbox/
-│   │   ├── docker_manager.py    # Container-Sandbox für Code-Ausführung
-│   │   └── sandbox_config.py    # RAM-, CPU- und Timeout-Limits
-│   ├── storage/
-│   │   ├── sqlite_db.py         # Lokale Persistenz (Tasks, Memories, Soul)
-│   │   └── redis_client.py      # State & Pub/Sub für Live-Events
-│   └── tools/
-│       ├── code_executor.py     # Python/Bash Sandbox Tool
-│       ├── web_search.py        # Tavily Live-Websuche
-│       ├── file_manager.py      # /maje Verzeichnisverwaltung
-│       ├── memory_tools.py      # Gedächtnis lesen & schreiben
-│       ├── pentesting.py        # Netzwerk- & Security-Scanning Tools
-│       └── ui_tools.py          # Dynamische UI-Generierung für die App
-├── app/                         # React Native / Expo Mobile App
-│   ├── App.tsx                  # Root Navigation & WebSocket Lifecycle
-│   ├── src/
-│   │   ├── api/                 # Axios HTTP Client & WebSocket Singleton
-│   │   ├── store/               # Zustand Stores (Chat, Tasks, Settings)
-│   │   ├── theme/               # Linear/Raycast Farbpalette & Typografie
-│   │   ├── components/          # ChatBubble, ReasoningLog, FileTree, CostChart etc.
-│   │   └── screens/             # Home, TaskDetail, Files, Soul, Memory, MAJE, Autonomy, Costs, Settings
-├── docker-compose.yml           # Deployment für den IONOS-Server (Backend + Redis)
-└── .env.example                 # Beispiel-Umgebungsvariablen
+│   ├── main.py                  # FastAPI Entrypoint (Routen, CORS, Startup)
+│   ├── api/routes/              # chat, tasks, files, soul, ui, settings, costs, autonomy, voice
+│   ├── core/                    # agent_loop, llm_client, cost_tracker, task_state
+│   ├── sandbox/                 # docker_manager (gehärtet), sandbox_config (Limits)
+│   ├── tools/                   # code_exec, files, web_search, memory, ui, pentesting
+│   └── tests/                   # pytest (Whitelist + CostTracker)
+├── app/                         # Expo App (iOS/Android/Web)
+├── deploy/                      # install.sh, Caddyfile, Deployment-Doku (/opt/MAJE)
+├── docker-compose.yml
+└── .env.example
 ```
 
 ---
 
-## 🔑 API Keys konfigurieren & skalieren
-
-Alle API-Keys werden in der Datei `config/api_keys.py` gepflegt:
-
-```python
-API_KEYS = {
-    "gemini": [
-        "AIzaSy...",
-        # Beliebig viele weitere Keys hinzufügen:
-        # "AIzaSy...",
-    ],
-    "groq": [
-        "gsk_...",
-    ],
-    "deepseek": [
-        "sk-...",
-    ],
-    "openai": [
-        "sk-...",
-    ],
-    "anthropic": [
-        "sk-ant-...",
-    ],
-    "tavily": [
-        "tvly-...",
-    ],
-    "ollama": [
-        "http://localhost:11434",
-    ]
-}
-```
-
-Wenn ein Key sein Rate-Limit erreicht (HTTP 429), rotiert MAJE automatisch zum nächsten konfigurierten Key oder zum nächsten Modell in der Fallback-Kette.
-
----
-
-## 🚀 Installation & Start
-
-### 1. Backend lokal starten (Entwicklung)
+## 🚀 Schnellstart (Entwicklung)
 
 ```bash
-# In virtueller Python-Umgebung:
+# Backend
 cd backend
 pip install -r requirements.txt
-
-# Starten mit Uvicorn
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+# App
+cd ../app
+npm install
+npx expo start          # Expo Go: QR-Code scannen (Voice/Upload sind in Expo Go enthalten)
 ```
 
-### 2. Deployment auf dem IONOS Server (4GB RAM)
+In der App unter **Settings**: Server-URL eintragen, JWT-Token einfügen, „Verbindung testen".
+Token erzeugen: `curl -s http://127.0.0.1:8000/settings/token` (nur von localhost erlaubt).
 
-MAJE ist mit Docker Compose für Linux-Server vorkonfiguriert. Es isoliert das Backend und Redis mit definierten RAM-Limits (2.5GB Backend, 512MB Redis):
+---
+
+## 🖥️ Deployment auf dem IONOS-Server (`/opt/MAJE`)
+
+Siehe **[deploy/README.md](deploy/README.md)**. Kurz:
 
 ```bash
-# Auf den IONOS Server kopieren und starten:
-docker compose up -d --build
-
-# Logs ansehen:
-docker compose logs -f maje-backend
+sudo mkdir -p /opt/MAJE && cd /opt/MAJE      # Repo hierhin kopieren
+sudo bash deploy/install.sh                  # Ordner, .env (Zufalls-JWT), config, Start
+nano /opt/MAJE/config/api_keys.py            # Keys eintragen
 ```
 
-### 3. Mobile App (Expo) starten
+- Daten liegen unter **`/opt/MAJE/data`** (Workspace, Soul, SQLite) und **`/opt/MAJE/redis`**.
+- Optional HTTPS per Caddy: `docker compose --profile proxy up -d` (Domain in `.env`).
+- Von überall: **Tailscale** (empfohlen, kein offener Port), **Cloudflare Tunnel** oder Caddy+Domain.
+
+---
+
+## 📱 Web/PWA (z. B. Netlify) – ohne Installation
 
 ```bash
 cd app
 npm install
-
-# Startet den Expo-Dev-Server (QR-Code mit Handy scannen via Expo Go):
-npx expo start
+npx expo export --platform web     # erzeugt ./dist  → zu Netlify deployen
 ```
-
-In der App unter **Settings**:
-- Server URL eintragen (z.B. `http://deine-server-ip:8000`)
-- Optionalen JWT Auth-Token eintragen
-- Auf **Verbindung testen & speichern** tippen – fertig!
+Die PWA verbindet sich mit derselben Server-URL und lässt sich per
+„Zum Startbildschirm hinzufügen" installieren. Setze dann `ALLOW_ORIGINS` in der `.env`
+auf die Netlify-Domain.
 
 ---
 
-## 🛡️ Sicherheit & Whitelist
+## 🔑 API-Keys
 
-- **Sandbox**: Jeglicher Code läuft in isolierten Containern ohne Host-Netzwerk-Rechte.
-- **Whitelist**: Im Backend und in den App-Einstellungen kann eine Whitelist aktiviert werden, sodass nur autorisierte Telefonnummern oder geheime Passcodes Zugriff auf den Agenten erhalten.
-- **Not-Aus (Emergency Stop)**: Sowohl über die App als auch über den API-Endpunkt `DELETE /chat/stop/{task_id}` kann jede laufende Agenten-Schleife sofort abgebrochen werden.
+In `config/api_keys.py` (Reihenfolge = Fallback-Reihenfolge). Für **kostenlose** Nutzung:
+Gemini (Free) → Groq (Free). Alternativ per `.env` (`GEMINI_API_KEY`, `GROQ_API_KEY`, `TAVILY_API_KEY`).
+Websuche nutzt Tavily, Serper oder Brave (`EXTERNAL_SERVICES`).
+
+---
+
+## 🛡️ Sicherheit
+
+- Sandbox: isolierte, gehärtete Container; Pentest-Tools nur gegen whitelistete Ziele.
+- Auth: JWT für alle Routen, WebSocket nur mit Token; `/settings/token` nur von localhost.
+- **Wichtig**: Der Backend-Container benötigt `/var/run/docker.sock` (für Sandbox-Container).
+  Exponiere MAJE deshalb nicht ungeschützt ins Internet (Tunnel/Tailscale + Token verwenden)
+  und setze ein langes `JWT_SECRET`.
+
+---
+
+## 🧪 Tests
+
+```bash
+cd backend
+python -m pytest tests -q
+```

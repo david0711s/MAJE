@@ -1,0 +1,8 @@
+# MAJE – Caddy Reverse Proxy (automatisches HTTPS)
+# Wird nur mit `docker compose --profile proxy up -d` gestartet.
+# DOMAIN wird aus der Umgebung übernommen (.env).
+{$DOMAIN} {
+	encode gzip
+	# WebSocket-Upgrades (wss://…/chat/ws) leitet Caddy automatisch weiter.
+	reverse_proxy maje-backend:8000
+}

@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
@@ -19,6 +20,16 @@ import { useSettingsStore } from '../store/settingsStore';
 import { ChatBubble } from '../components/ChatBubble';
 import { ModeSelector } from '../components/ModeSelector';
 import { EmergencyStop } from '../components/EmergencyStop';
+import { VoiceControls } from '../components/VoiceControls';
+import { uploadFile } from '../api/client';
+
+// expo-document-picker is included in Expo Go – load defensively.
+let DocumentPicker: any = null;
+try {
+  DocumentPicker = require('expo-document-picker');
+} catch {
+  DocumentPicker = null;
+}
 
 interface HomeScreenProps {
   onOpenTaskDetail?: (taskId: string) => void;
@@ -37,6 +48,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onOpenTaskDetail }) => {
     activeTaskId,
     stopActiveTask,
     error,
+    autoSpeak,
+    toggleAutoSpeak,
   } = useChatStore();
 
   const isConnected = useSettingsStore((s) => s.isConnected);
@@ -56,6 +69,38 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onOpenTaskDetail }) => {
     await sendMessage(text);
   };
 
+  const handleTranscript = (text: string) => {
+    if (!text.trim()) return;
+    sendMessage(text);
+  };
+
+  const handleAttach = async () => {
+    if (!DocumentPicker) {
+      Alert.alert('Datei anhängen', 'Auf diesem Gerät ist kein Datei-Picker verfügbar.');
+      return;
+    }
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+      if (result?.canceled) return;
+      const asset = result?.assets?.[0];
+      if (!asset) return;
+
+      const res = await uploadFile(
+        { uri: asset.uri, file: asset.file, name: asset.name || 'upload.bin', mimeType: asset.mimeType },
+        'files',
+      );
+      await sendMessage(
+        `Ich habe dir die Datei "${res.name}" hochgeladen (gespeichert unter /maje/${res.path}). Bitte lies sie und fasse zusammen, was drin steht.`,
+      );
+    } catch (e: any) {
+      Alert.alert('Upload fehlgeschlagen', e?.response?.data?.detail || e?.message || 'Fehler');
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
@@ -73,11 +118,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onOpenTaskDetail }) => {
             </Text>
           </View>
 
-          {activeTaskId && (
-            <View style={styles.headerRight}>
-              <EmergencyStop onStop={stopActiveTask} />
-            </View>
-          )}
+          <View style={styles.headerRight}>
+            <TouchableOpacity
+              style={[styles.speakToggle, autoSpeak && styles.speakToggleActive]}
+              onPress={toggleAutoSpeak}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.speakToggleText}>{autoSpeak ? '🔊' : '🔇'}</Text>
+            </TouchableOpacity>
+            {activeTaskId && <EmergencyStop onStop={stopActiveTask} />}
+          </View>
         </View>
 
         {/* Mode Selector Segmented Control */}
@@ -121,6 +171,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onOpenTaskDetail }) => {
 
         {/* Input Bar */}
         <View style={styles.inputContainer}>
+          <TouchableOpacity style={styles.iconButton} onPress={handleAttach} activeOpacity={0.8}>
+            <Text style={styles.iconButtonText}>📎</Text>
+          </TouchableOpacity>
+
+          <VoiceControls onTranscript={handleTranscript} disabled={isLoading} />
+
           <TextInput
             style={styles.input}
             placeholder={
@@ -302,5 +358,36 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 20,
     fontWeight: '700',
+  },
+  speakToggle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.bg.overlay,
+    borderWidth: 1,
+    borderColor: Colors.border.strong,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: Spacing.sm,
+  },
+  speakToggleActive: {
+    backgroundColor: Colors.accent.primaryMuted,
+    borderColor: Colors.accent.primary,
+  },
+  speakToggleText: {
+    fontSize: 16,
+  },
+  iconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.bg.overlay,
+    borderWidth: 1,
+    borderColor: Colors.border.strong,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconButtonText: {
+    fontSize: 18,
   },
 });

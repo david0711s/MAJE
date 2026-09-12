@@ -1,13 +1,13 @@
 """
 MAJE – ReAct Agent Loop
 Reasoning → Action (Tool) → Observation → repeat until done / stopped.
+Emits live events through an injected ``emit`` coroutine (per task, not global).
 """
 from __future__ import annotations
 
 import json
-import asyncio
 from datetime import datetime
-from typing import AsyncIterator, Optional, Callable
+from typing import Callable, Optional
 
 from loguru import logger
 
@@ -49,15 +49,17 @@ class AgentLoop:
     def __init__(self):
         self._ws_callback: Optional[Callable] = None
 
-    def set_ws_callback(self, cb: Callable):
-        """Inject WebSocket send function for live updates."""
+    def set_ws_callback(self, cb: Optional[Callable]):
+        """Legacy global callback (kept for backwards compatibility)."""
         self._ws_callback = cb
 
-    async def _emit(self, event_type: str, data: dict, task_id: str):
-        """Send live update via WebSocket if callback is set."""
-        if self._ws_callback:
+    async def _emit(self, event_type: str, data: dict, task_id: str, emit: Optional[Callable] = None):
+        """Send a live update through the per-task emitter (fallback: global callback)."""
+        payload = {"type": event_type, "task_id": task_id, **data}
+        target = emit or self._ws_callback
+        if target:
             try:
-                await self._ws_callback({"type": event_type, "task_id": task_id, **data})
+                await target(payload)
             except Exception:
                 pass
 
@@ -71,63 +73,57 @@ class AgentLoop:
         )
         state.messages.append({"role": "assistant", "content": response.content})
         state.active_provider = response.provider_id
+        state.metadata["model"] = response.model
+        cost = cost_tracker.calculate_cost(response.model, response.input_tokens, response.output_tokens)
+        state.metadata["cost_eur"] = round(state.metadata.get("cost_eur", 0.0) + cost, 6)
         await task_manager.save(state)
         return response.content
-
-    async def run_agent(self, state: TaskState) -> AsyncIterator[dict]:
-        """
-        Full ReAct Agent Loop. Yields reasoning/action/observation events.
-        Call this in a background task and stream via WebSocket.
-        """
+    async def run_agent(self, state: TaskState, emit: Optional[Callable] = None) -> None:
+        """Full ReAct Agent Loop. Emits reasoning/action/observation events via ``emit``."""
         state.status = TaskStatus.RUNNING
         await task_manager.save(state)
 
-        # Build tool descriptions for system prompt
         tool_desc = "\n".join(
             f"- {name}: {info['description']}"
             for name, info in TOOL_REGISTRY.items()
         )
         system_prompt = SYSTEM_PROMPT_AGENT.format(tool_descriptions=tool_desc)
 
-        # Load memory context
         from tools.memory_tools import load_relevant_memory
         memory_ctx = await load_relevant_memory(state.goal)
         if memory_ctx:
             system_prompt += f"\n\nYour relevant memories:\n{memory_ctx}"
 
-        # Add goal as first user message if not already set
         if not state.messages:
             state.messages.append({"role": "user", "content": state.goal})
 
-        await self._emit("status", {"status": "running", "message": "Agent loop started"}, state.task_id)
+        await self._emit("status", {"status": "running", "message": "Agent loop started"}, state.task_id, emit)
 
         while state.loop_count < MAX_LOOP_ITERATIONS:
-            # Check stop signal
             if await task_manager.check_stop(state.task_id):
                 state.status = TaskStatus.STOPPED
                 state.result = "Task stopped by user."
                 await task_manager.save(state)
-                await self._emit("stopped", {"message": "Task stopped by user."}, state.task_id)
+                await self._emit("stopped", {"result": state.result, "total_cost_eur": state.metadata.get("cost_eur", 0.0)}, state.task_id, emit)
                 return
 
-            # Check cost limit
             if not await cost_tracker.check_limit(is_autonomy=(state.mode == "autonomy")):
                 state.status = TaskStatus.PAUSED
                 state.error = "Daily cost limit reached. Task paused."
                 await task_manager.save(state)
-                await self._emit("cost_limit", {"message": "Daily cost limit reached."}, state.task_id)
+                await self._emit("failed", {"error": state.error, "total_cost_eur": state.metadata.get("cost_eur", 0.0)}, state.task_id, emit)
                 return
 
             state.loop_count += 1
             logger.info(f"Agent loop iteration {state.loop_count} for task {state.task_id}")
 
-            # ── Reasoning Phase ──────────────────────────────────────────────
             reasoning_step = {
                 "step": state.loop_count,
+                "iteration": state.loop_count,
                 "phase": "reasoning",
                 "timestamp": datetime.utcnow().isoformat(),
             }
-            await self._emit("reasoning_start", reasoning_step, state.task_id)
+            await self._emit("reasoning_start", reasoning_step, state.task_id, emit)
 
             try:
                 response = await llm_client.complete(
@@ -136,27 +132,31 @@ class AgentLoop:
                     temperature=0.3,
                 )
                 state.active_provider = response.provider_id
+                state.metadata["model"] = response.model
             except Exception as e:
                 state.status = TaskStatus.FAILED
                 state.error = str(e)
                 await task_manager.save(state)
-                await self._emit("error", {"error": str(e)}, state.task_id)
+                await self._emit("failed", {"error": str(e), "total_cost_eur": state.metadata.get("cost_eur", 0.0)}, state.task_id, emit)
                 return
+
+            step_cost = cost_tracker.calculate_cost(response.model, response.input_tokens, response.output_tokens)
+            state.metadata["cost_eur"] = round(state.metadata.get("cost_eur", 0.0) + step_cost, 6)
 
             reasoning_text = response.content
             reasoning_step["content"] = reasoning_text
+            reasoning_step["thought"] = reasoning_text
             reasoning_step["provider"] = response.provider_id
             state.reasoning_log.append(reasoning_step)
             state.messages.append({"role": "assistant", "content": reasoning_text})
-            await self._emit("reasoning", reasoning_step, state.task_id)
+            await self._emit("reasoning", reasoning_step, state.task_id, emit)
 
-            # ── Check for DONE / FAILED ──────────────────────────────────────
             if "TASK_COMPLETE:" in reasoning_text:
                 summary = reasoning_text.split("TASK_COMPLETE:", 1)[1].strip()
                 state.status = TaskStatus.COMPLETED
                 state.result = summary
                 await task_manager.save(state)
-                await self._emit("completed", {"result": summary}, state.task_id)
+                await self._emit("completed", {"result": summary, "total_cost_eur": state.metadata.get("cost_eur", 0.0)}, state.task_id, emit)
                 return
 
             if "TASK_FAILED:" in reasoning_text:
@@ -164,29 +164,33 @@ class AgentLoop:
                 state.status = TaskStatus.FAILED
                 state.error = reason
                 await task_manager.save(state)
-                await self._emit("failed", {"error": reason}, state.task_id)
+                await self._emit("failed", {"error": reason, "total_cost_eur": state.metadata.get("cost_eur", 0.0)}, state.task_id, emit)
                 return
-
             # ── Action Phase: parse tool call ─────────────────────────────────
             tool_call = self._parse_tool_call(reasoning_text)
             if not tool_call:
-                # No tool call → model is just thinking, add dummy observation
-                state.messages.append({"role": "user", "content": "Continue. If done, use TASK_COMPLETE:. If need a tool, format the call as JSON."})
+                state.messages.append({
+                    "role": "user",
+                    "content": "Continue. If done, use TASK_COMPLETE:. If you need a tool, format the call as JSON.",
+                })
                 await task_manager.save(state)
                 continue
 
             tool_name = tool_call.get("tool")
-            tool_args = tool_call.get("args", {})
+            tool_args = tool_call.get("args", {}) or {}
 
             action_step = {
                 "step": state.loop_count,
+                "iteration": state.loop_count,
                 "phase": "action",
                 "tool": tool_name,
+                "action": tool_name,
+                "action_input": tool_args,
                 "args": tool_args,
                 "timestamp": datetime.utcnow().isoformat(),
             }
             state.tool_calls.append(action_step)
-            await self._emit("action", action_step, state.task_id)
+            await self._emit("action", action_step, state.task_id, emit)
 
             # ── Execute Tool ─────────────────────────────────────────────────
             tool_fn = TOOL_REGISTRY.get(tool_name, {}).get("fn")
@@ -202,39 +206,38 @@ class AgentLoop:
 
             obs_step = {
                 "step": state.loop_count,
+                "iteration": state.loop_count,
                 "phase": "observation",
                 "tool": tool_name,
-                "result": observation[:2000],  # Truncate for display
+                "action": tool_name,
+                "result": observation[:2000],
+                "observation": observation[:2000],
                 "timestamp": datetime.utcnow().isoformat(),
             }
             state.reasoning_log.append(obs_step)
             state.messages.append({"role": "user", "content": f"Tool result for {tool_name}:\n{observation}"})
-            await self._emit("observation", obs_step, state.task_id)
+            await self._emit("observation", obs_step, state.task_id, emit)
             await task_manager.save(state)
 
         # Max iterations reached
         state.status = TaskStatus.FAILED
         state.error = f"Max iterations ({MAX_LOOP_ITERATIONS}) reached without completion."
         await task_manager.save(state)
-        await self._emit("failed", {"error": state.error}, state.task_id)
+        await self._emit("failed", {"error": state.error, "total_cost_eur": state.metadata.get("cost_eur", 0.0)}, state.task_id, emit)
 
     def _parse_tool_call(self, text: str) -> Optional[dict]:
-        """Extract JSON tool call from model output."""
+        """Extract a JSON tool call from the model output."""
         import re
-        # Look for ```json ... ``` blocks
         pattern = r"```json\s*(\{.*?\})\s*```"
-        matches = re.findall(pattern, text, re.DOTALL)
-        for m in matches:
+        for m in re.findall(pattern, text, re.DOTALL):
             try:
                 data = json.loads(m)
                 if "tool" in data:
                     return data
             except json.JSONDecodeError:
                 continue
-        # Fallback: bare JSON object with "tool" key
         pattern2 = r'\{[^{}]*"tool"[^{}]*\}'
-        matches2 = re.findall(pattern2, text, re.DOTALL)
-        for m in matches2:
+        for m in re.findall(pattern2, text, re.DOTALL):
             try:
                 data = json.loads(m)
                 if "tool" in data:
@@ -246,3 +249,5 @@ class AgentLoop:
 
 # Singleton
 agent_loop = AgentLoop()
+
+

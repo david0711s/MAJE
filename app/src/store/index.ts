@@ -12,31 +12,23 @@ export * from './settingsStore';
  */
 export function useInitializeMAJE() {
   const initSettings = useSettingsStore((s) => s.initSettings);
-  const addWSReasoningStep = useChatStore((s) => s.addWSReasoningStep);
-  const finishTaskFromWS = useChatStore((s) => s.finishTaskFromWS);
+  const applyAgentEvent = useChatStore((s) => s.applyAgentEvent);
 
   useEffect(() => {
-    // 1. Load initial settings
+    // 1. Load initial settings, then connect the WebSocket
     initSettings().then(() => {
-      // 2. Connect WebSocket
       majeWS.connect();
     });
 
-    // 3. Register WebSocket handlers
-    const handleReasoning = (event: any) => {
-      addWSReasoningStep(event);
+    // 2. Route every backend event (reasoning/action/observation/completed/…) into the store
+    const handleEvent = (event: any) => {
+      applyAgentEvent(event);
     };
 
-    const handleTaskFinished = (event: any) => {
-      finishTaskFromWS(event);
-    };
-
-    majeWS.on('reasoning_step', handleReasoning);
-    majeWS.on('task_finished', handleTaskFinished);
+    majeWS.on('*', handleEvent);
 
     return () => {
-      majeWS.off('reasoning_step', handleReasoning);
-      majeWS.off('task_finished', handleTaskFinished);
+      majeWS.off('*', handleEvent);
       majeWS.disconnect();
     };
   }, []);

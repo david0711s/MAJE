@@ -18,9 +18,8 @@ import { formatDateTime } from '../utils/format';
 
 interface MemoryItem {
   id: string;
-  key: string;
-  value: string;
-  category?: string;
+  content: string;
+  tags?: string;
   created_at?: string;
 }
 
@@ -36,7 +35,7 @@ export const MemoryScreen: React.FC = () => {
     setIsLoading(true);
     try {
       const data = await api.get('/soul/memory');
-      setMemories(data || []);
+      setMemories(data?.entries || []);
     } catch (e) {
       console.error('Failed to load memories:', e);
     } finally {
@@ -51,7 +50,7 @@ export const MemoryScreen: React.FC = () => {
   const handleAddMemory = async () => {
     if (!newKey.trim() || !newValue.trim()) return;
     try {
-      await api.post('/soul/memory', { key: newKey.trim(), value: newValue.trim() });
+      await api.post('/soul/memory', { content: newValue.trim(), tags: newKey.trim() });
       setNewKey('');
       setNewValue('');
       setShowAddForm(false);
@@ -61,10 +60,10 @@ export const MemoryScreen: React.FC = () => {
     }
   };
 
-  const handleDeleteMemory = async (key: string) => {
+  const handleDeleteMemory = async (id: string) => {
     try {
-      await api.delete(`/soul/memory/${encodeURIComponent(key)}`);
-      setMemories((prev) => prev.filter((m) => m.key !== key));
+      await api.delete(`/soul/memory/${encodeURIComponent(id)}`);
+      setMemories((prev) => prev.filter((m) => m.id !== id));
     } catch (e: any) {
       Alert.alert('Fehler', 'Konnte Eintrag nicht löschen.');
     }
@@ -72,8 +71,8 @@ export const MemoryScreen: React.FC = () => {
 
   const filteredMemories = memories.filter(
     (m) =>
-      m.key.toLowerCase().includes(search.toLowerCase()) ||
-      m.value.toLowerCase().includes(search.toLowerCase())
+      (m.content || '').toLowerCase().includes(search.toLowerCase()) ||
+      (m.tags || '').toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -135,17 +134,17 @@ export const MemoryScreen: React.FC = () => {
       ) : (
         <FlatList
           data={filteredMemories}
-          keyExtractor={(item) => item.key}
+          keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
             <View style={styles.memoryCard}>
               <View style={styles.cardHeader}>
-                <Text style={styles.memoryKey}>{item.key}</Text>
-                <TouchableOpacity onPress={() => handleDeleteMemory(item.key)}>
+                <Text style={styles.memoryKey}>{item.tags || 'Notiz'}</Text>
+                <TouchableOpacity onPress={() => handleDeleteMemory(item.id)}>
                   <Text style={styles.deleteIcon}>✕</Text>
                 </TouchableOpacity>
               </View>
-              <Text style={styles.memoryValue}>{item.value}</Text>
+              <Text style={styles.memoryValue}>{item.content}</Text>
               {item.created_at && (
                 <Text style={styles.memoryDate}>{formatDateTime(item.created_at)}</Text>
               )}

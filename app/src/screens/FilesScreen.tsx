@@ -9,13 +9,21 @@ import {
   SafeAreaView,
   ActivityIndicator,
   Share,
+  Alert,
 } from 'react-native';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
 import { Spacing } from '../theme/spacing';
-import { api, getServerUrl } from '../api/client';
+import { api, getServerUrl, readRemoteFile, uploadFile } from '../api/client';
 import { FileTree, FileNode } from '../components/FileTree';
 import { formatBytes, formatDateTime } from '../utils/format';
+
+let DocumentPicker: any = null;
+try {
+  DocumentPicker = require('expo-document-picker');
+} catch {
+  DocumentPicker = null;
+}
 
 export const FilesScreen: React.FC = () => {
   const [fileTree, setFileTree] = useState<FileNode[]>([]);
@@ -27,7 +35,7 @@ export const FilesScreen: React.FC = () => {
   const fetchFiles = async () => {
     setIsLoading(true);
     try {
-      const data = await api.get('/files/');
+      const data = await api.get('/files/tree');
       setFileTree(data.tree || []);
     } catch (e) {
       console.error('Error fetching file tree:', e);
@@ -44,12 +52,29 @@ export const FilesScreen: React.FC = () => {
     setSelectedFile(node);
     setLoadingContent(true);
     try {
-      const res = await api.get(`/files/view?path=${encodeURIComponent(node.path)}`);
+      const res = await readRemoteFile(node.path);
       setFileContent(res.content || '(Leere Datei)');
     } catch (e: any) {
-      setFileContent(`Fehler beim Lesen der Datei: ${e?.message || 'Unbekannt'}`);
+      setFileContent(`Fehler beim Lesen der Datei: ${e?.response?.data?.detail || e?.message || 'Unbekannt'}`);
     } finally {
       setLoadingContent(false);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!DocumentPicker) {
+      Alert.alert('Upload', 'Kein Datei-Picker verfügbar.');
+      return;
+    }
+    try {
+      const result = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true, multiple: false });
+      if (result?.canceled) return;
+      const asset = result?.assets?.[0];
+      if (!asset) return;
+      await uploadFile({ uri: asset.uri, file: asset.file, name: asset.name || 'upload.bin', mimeType: asset.mimeType }, 'files');
+      await fetchFiles();
+    } catch (e: any) {
+      Alert.alert('Upload fehlgeschlagen', e?.response?.data?.detail || e?.message || 'Fehler');
     }
   };
 
@@ -57,7 +82,8 @@ export const FilesScreen: React.FC = () => {
     if (!selectedFile) return;
     try {
       const serverUrl = await getServerUrl();
-      const downloadUrl = `${serverUrl}/files/download?path=${encodeURIComponent(selectedFile.path)}`;
+      const encoded = selectedFile.path.split('/').map(encodeURIComponent).join('/');
+      const downloadUrl = `${serverUrl}/files/download/${encoded}`;
       await Share.share({
         message: `MAJE Datei: ${selectedFile.name}\n${downloadUrl}`,
         url: downloadUrl,
@@ -71,9 +97,14 @@ export const FilesScreen: React.FC = () => {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Dateimanager (/maje)</Text>
-        <TouchableOpacity style={styles.refreshButton} onPress={fetchFiles}>
-          <Text style={styles.refreshText}>↻ Aktualisieren</Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.uploadButton} onPress={handleUpload}>
+            <Text style={styles.uploadText}>⬆ Hochladen</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.refreshButton} onPress={fetchFiles}>
+            <Text style={styles.refreshText}>↻</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {isLoading ? (
@@ -159,6 +190,24 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.radius.sm,
   },
   refreshText: {
+    color: Colors.accent.primary,
+    fontSize: Typography.size.xs,
+    fontWeight: '600',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  uploadButton: {
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    backgroundColor: Colors.accent.primaryMuted,
+    borderRadius: Spacing.radius.sm,
+    borderWidth: 1,
+    borderColor: Colors.accent.primary,
+  },
+  uploadText: {
     color: Colors.accent.primary,
     fontSize: Typography.size.xs,
     fontWeight: '600',

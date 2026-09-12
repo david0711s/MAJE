@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { api } from '../api/client';
 import { majeWS } from '../api/websocket';
+import { speak, stopSpeaking } from '../utils/speech';
 
 export type ChatMode = 'chat' | 'agent';
 
@@ -31,7 +32,10 @@ interface ChatState {
   error: string | null;
 
   setMode: (mode: ChatMode) => void;
+  autoSpeak: boolean;
+  toggleAutoSpeak: () => void;
   sendMessage: (text: string) => Promise<void>;
+  applyAgentEvent: (event: any) => void;
   stopActiveTask: () => Promise<void>;
   clearMessages: () => void;
   addWSReasoningStep: (step: any) => void;
@@ -52,8 +56,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isLoading: false,
   activeTaskId: null,
   error: null,
+  autoSpeak: false,
 
   setMode: (mode) => set({ mode }),
+
+  toggleAutoSpeak: () => {
+    const next = !get().autoSpeak;
+    if (!next) stopSpeaking();
+    set({ autoSpeak: next });
+  },
 
   clearMessages: () => set({ messages: [] }),
 
@@ -92,9 +103,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
           messages: [...state.messages, assistantMsg],
           isLoading: false,
         }));
+
+        if (get().autoSpeak && res.reply) {
+          speak(res.reply);
+        }
       } else {
         // Agent Mode: starts autonomous ReAct loop
-        const res = await api.post('/chat/agent', { task: text });
+        const res = await api.post('/chat/agent', { goal: text, mode: 'agent' });
         const taskId = res.task_id;
 
         const agentMsg: ChatMessage = {
@@ -136,6 +151,54 @@ export const useChatStore = create<ChatState>((set, get) => ({
       console.error('Failed to stop task:', e);
     } finally {
       set({ isLoading: false, activeTaskId: null });
+    }
+  },
+
+  applyAgentEvent: (event: any) => {
+    const type = event?.type;
+    const taskId = event?.task_id;
+    if (!taskId) return;
+
+    if (type === 'reasoning' || type === 'action' || type === 'observation') {
+      set((state) => ({
+        messages: state.messages.map((msg) => {
+          if (msg.taskId !== taskId) return msg;
+          const step = {
+            iteration: event.iteration || event.step || 0,
+            thought: event.thought || event.content,
+            action: event.action || event.tool,
+            action_input: event.action_input || event.args,
+            observation: event.observation || event.result,
+            timestamp: event.timestamp,
+          };
+          const steps = [...(msg.reasoningSteps || []), step];
+          let content = msg.content;
+          if (type === 'reasoning' && event.content) content = String(event.content).slice(0, 400);
+          else if (type === 'action') content = `⚙️ Aktion: ${event.tool || ''}`;
+          else if (type === 'observation') content = `👁️ ${String(event.observation || event.result || '').slice(0, 200)}`;
+          return { ...msg, reasoningSteps: steps, content };
+        }),
+      }));
+      return;
+    }
+
+    if (type === 'completed' || type === 'failed' || type === 'stopped') {
+      set((state) => ({
+        messages: state.messages.map((msg) => {
+          if (msg.taskId !== taskId) return msg;
+          const content =
+            type === 'completed'
+              ? event.result || 'Aufgabe erfolgreich abgeschlossen.'
+              : type === 'failed'
+              ? `Fehler:\n${event.error || 'Unbekannter Fehler'}`
+              : 'Aufgabe gestoppt.';
+          return { ...msg, content, cost_eur: event.total_cost_eur };
+        }),
+        isLoading: state.activeTaskId === taskId ? false : state.isLoading,
+        activeTaskId: state.activeTaskId === taskId ? null : state.activeTaskId,
+      }));
+      if (get().autoSpeak && type === 'completed') speak(event.result || 'Fertig.');
+      return;
     }
   },
 
