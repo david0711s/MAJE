@@ -82,10 +82,15 @@ app = FastAPI(
 
 # ── CORS ─────────────────────────────────────────────────────────────────────
 _origins = [o.strip() for o in os.getenv("ALLOW_ORIGINS", "*").split(",") if o.strip()]
+_origin_regex = os.getenv("ALLOW_ORIGIN_REGEX", "").strip() or None
+# If a regex is configured and origins is the default "*", prefer the regex.
+if _origin_regex and _origins == ["*"]:
+    _origins = []
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_origins or ["*"],
-    allow_credentials=False if "*" in _origins else True,
+    allow_origins=_origins,
+    allow_origin_regex=_origin_regex,
+    allow_credentials="*" not in _origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )

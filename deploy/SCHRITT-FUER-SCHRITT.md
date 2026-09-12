@@ -157,6 +157,16 @@ docker compose up -d            # Backend neu starten
 ```
 (Mehrere Domains mit Komma trennen.)
 
+**Bequemer** – alle Netlify-Subdomains automatisch erlauben (kein Suchen der genauen URL):
+```bash
+# in der .env:
+ALLOW_ORIGINS=*
+ALLOW_ORIGIN_REGEX=https://([a-z0-9-]+\.)*netlify\.app
+```
+```bash
+docker compose up -d
+```
+
 ### C4. In der PWA verbinden
 Netlify-Seite auf dem Handy öffnen → **Settings** → **Server URL**:
 `https://maje.deinedomain.de` (die HTTPS-Adresse aus A7) + **JWT-Token** → „Verbindung testen“.

@@ -20,10 +20,20 @@ import docker
 from docker.errors import DockerException, ImageNotFound
 from loguru import logger
 
-from .sandbox_config import SANDBOX_CONFIG, get_limits
+from .sandbox_config import SANDBOX_CONFIG, get_limits, network_allowed
 
 MAJE_ROOT = os.getenv("MAJE_ROOT", "/maje")
 SANDBOX_UID = os.getenv("SANDBOX_UID", "1000")
+
+
+def _network_disabled(lang_config: dict, network: Optional[bool]) -> bool:
+    """Resolve whether the container should have no network."""
+    if network is not None:
+        return not network
+    default_disabled = bool(lang_config.get("network_disabled", True))
+    if default_disabled and network_allowed():
+        return False  # global opt-in (SANDBOX_ALLOW_NETWORK=1)
+    return default_disabled
 
 
 class SandboxManager:
@@ -46,6 +56,7 @@ class SandboxManager:
         task: Optional[str] = None,  # alias used by some callers
         writable_rootfs: bool = False,
         image: Optional[str] = None,
+        network: Optional[bool] = None,
     ) -> dict:
         """Execute code in an isolated, hardened Docker container.
 
@@ -86,7 +97,7 @@ class SandboxManager:
                 script_path=str(script_path),
                 workspace=str(workspace),
                 timeout=eff_timeout,
-                network_disabled=lang_config.get("network_disabled", True),
+                network_disabled=_network_disabled(lang_config, network),
                 writable_rootfs=writable_rootfs,
                 image_override=image,
             )
@@ -178,6 +189,7 @@ class SandboxManager:
         task_id: Optional[str] = None,
         timeout: int = 30,
         writable_rootfs: bool = False,
+        network: Optional[bool] = None,
     ) -> dict:
         """Run an arbitrary shell command in the sandbox."""
         return await self.run_code(
@@ -186,6 +198,7 @@ class SandboxManager:
             task_id=task_id,
             timeout=timeout,
             writable_rootfs=writable_rootfs,
+            network=network,
         )
 
     async def run_pentest(

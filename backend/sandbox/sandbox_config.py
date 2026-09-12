@@ -90,6 +90,15 @@ _LANGUAGES: dict[str, dict] = {
 }
 
 
+def network_allowed() -> bool:
+    """Whether normal (non-pentest) sandbox code may use the network.
+
+    Default: OFF (safer). Set SANDBOX_ALLOW_NETWORK=1 in the .env to let the agent
+    install packages / download things from inside the sandbox.
+    """
+    return os.getenv("SANDBOX_ALLOW_NETWORK", "0").strip().lower() in ("1", "true", "yes", "on")
+
+
 SANDBOX_CONFIG: dict = {
     "languages": _LANGUAGES,
     # Kept for backwards compatibility – prefer get_limits() at runtime.
