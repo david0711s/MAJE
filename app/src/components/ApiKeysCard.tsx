@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { api } from '../api/client';
+import { api, describeError } from '../api/client';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
 import { Spacing } from '../theme/spacing';
@@ -36,15 +36,18 @@ export const ApiKeysCard: React.FC = () => {
   const [inputs, setInputs] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const fetchKeys = async () => {
     setIsLoading(true);
+    setLoadError(null);
     try {
       const data = await api.get('/settings/keys');
-      setProviders(data.providers || []);
-      setEncryption(data.encryption || null);
-    } catch {
-      // server not reachable – leave empty
+      setProviders(Array.isArray(data?.providers) ? data.providers : []);
+      setEncryption(data?.encryption || null);
+    } catch (e: any) {
+      setProviders([]);
+      setLoadError(describeError(e));
     } finally {
       setIsLoading(false);
     }
@@ -177,6 +180,15 @@ export const ApiKeysCard: React.FC = () => {
             </View>
           </View>
         ))
+      )}
+
+      {!!loadError && (
+        <View style={styles.errorBox}>
+          <Text style={styles.errorText}>{loadError}</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={fetchKeys} activeOpacity={0.8}>
+            <Text style={styles.retryText}>Erneut versuchen</Text>
+          </TouchableOpacity>
+        </View>
       )}
 
       {encryption && (
@@ -328,6 +340,34 @@ const styles = StyleSheet.create({
     fontSize: Typography.size.xs - 1,
     marginTop: Spacing.xs,
     lineHeight: 15,
+  },
+  errorBox: {
+    marginTop: Spacing.sm,
+    padding: Spacing.sm,
+    borderRadius: Spacing.radius.sm,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.35)',
+  },
+  errorText: {
+    color: Colors.accent.error,
+    fontSize: Typography.size.xs,
+    lineHeight: 16,
+  },
+  retryBtn: {
+    marginTop: Spacing.sm,
+    alignSelf: 'flex-start',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: Spacing.radius.sm,
+    backgroundColor: Colors.bg.overlay,
+    borderWidth: 1,
+    borderColor: Colors.border.strong,
+  },
+  retryText: {
+    color: Colors.text.primary,
+    fontSize: Typography.size.xs,
+    fontWeight: '600',
   },
   keyList: {
     marginTop: Spacing.xs,

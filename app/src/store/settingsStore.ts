@@ -20,6 +20,7 @@ interface SettingsState {
   isConnected: boolean;
   initialized: boolean;
   wrongServer: boolean;
+  setupDismissed: boolean;
   whitelist: WhitelistConfig;
   sandbox: SandboxConfig;
   apiKeysStatus: Array<{ provider: string; configured: boolean }>;
@@ -30,6 +31,8 @@ interface SettingsState {
   updateServerUrl: (url: string) => Promise<void>;
   updateToken: (token: string) => Promise<void>;
   checkConnection: () => Promise<boolean>;
+  dismissSetup: () => void;
+  openSetup: () => void;
   fetchSettings: () => Promise<void>;
   saveWhitelist: (whitelist: WhitelistConfig) => Promise<void>;
   saveSandbox: (sandbox: SandboxConfig) => Promise<void>;
@@ -41,6 +44,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   isConnected: false,
   initialized: false,
   wrongServer: false,
+  setupDismissed: false,
   whitelist: {
     active: true,
     allowed_numbers: [],
@@ -66,6 +70,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     }
     set({ initialized: true });
   },
+
+  dismissSetup: () => set({ setupDismissed: true }),
+  openSetup: () => set({ setupDismissed: false }),
 
   updateServerUrl: async (url: string) => {
     const cleanUrl = url.trim().replace(/\/$/, '');

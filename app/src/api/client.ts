@@ -70,6 +70,18 @@ export const api = {
   },
 };
 
+/** Human-friendly error text (incl. network/CORS hints). */
+export function describeError(err: any): string {
+  const status = err?.response?.status;
+  const detail = err?.response?.data?.detail;
+  if (status) return `Server-Fehler ${status}${detail ? `: ${detail}` : ''}`;
+  const msg = err?.message || '';
+  if (msg === 'Network Error' || err?.code === 'ERR_NETWORK') {
+    return 'Server nicht erreichbar (Network Error). Prüfe: Server-URL korrekt? Backend läuft? Falls die Seite https ist, muss das Backend auch https sein.';
+  }
+  return msg || 'Unbekannter Fehler';
+}
+
 /**
  * Upload a picked/recorded file to the backend.
  * Works both in React Native (uri) and on web (File object).

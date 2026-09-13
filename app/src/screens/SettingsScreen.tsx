@@ -22,11 +22,13 @@ export const SettingsScreen: React.FC = () => {
     serverUrl,
     token,
     isConnected,
+    error,
     sandbox,
     apiKeysStatus,
     updateServerUrl,
     updateToken,
     checkConnection,
+    openSetup,
     saveSandbox,
     fetchSettings,
   } = useSettingsStore();
@@ -109,6 +111,16 @@ export const SettingsScreen: React.FC = () => {
             ) : (
               <Text style={styles.testBtnText}>Verbindung testen & speichern</Text>
             )}
+          </TouchableOpacity>
+
+          {!!error && (
+            <View style={styles.connError}>
+              <Text style={styles.connErrorText}>{error}</Text>
+            </View>
+          )}
+
+          <TouchableOpacity style={styles.saveBtn} onPress={openSetup}>
+            <Text style={styles.saveBtnText}>Einrichtungs-Assistent öffnen</Text>
           </TouchableOpacity>
         </View>
 
@@ -280,6 +292,19 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: Typography.size.xs,
     fontWeight: '600',
+  },
+  connError: {
+    marginTop: Spacing.sm,
+    padding: Spacing.sm,
+    borderRadius: Spacing.radius.sm,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.35)',
+  },
+  connErrorText: {
+    color: Colors.accent.error,
+    fontSize: Typography.size.xs,
+    lineHeight: 16,
   },
   badgeWrap: {
     flexDirection: 'row',

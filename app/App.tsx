@@ -63,7 +63,8 @@ export default function App() {
   const isConnected = useSettingsStore((s) => s.isConnected);
   const token = useSettingsStore((s) => s.token);
   const wrongServer = useSettingsStore((s) => s.wrongServer);
-  const [setupSkipped, setSetupSkipped] = useState(false);
+  const setupDismissed = useSettingsStore((s) => s.setupDismissed);
+  const dismissSetup = useSettingsStore((s) => s.dismissSetup);
 
   const [activeTab, setActiveTab] = useState<TabKey>('chat');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -72,8 +73,8 @@ export default function App() {
   // Einrichtung nur zeigen, wenn noch nichts gespeichert wurde oder die URL
   // offensichtlich kein MAJE-Server ist. Bei kurzzeitig offline laufen die
   // gespeicherten Einstellungen (URL, Token, Keys) normal weiter.
-  if (initialized && !setupSkipped && !isConnected && (!token || wrongServer)) {
-    return <SetupScreen onDone={() => setSetupSkipped(true)} />;
+  if (initialized && !setupDismissed && !isConnected && (!token || wrongServer)) {
+    return <SetupScreen onDone={dismissSetup} />;
   }
 
   const handleOpenTaskDetail = (taskId: string) => {

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { api } from '../api/client';
+import { api, describeError } from '../api/client';
 import { majeWS } from '../api/websocket';
 import { speak, stopSpeaking } from '../utils/speech';
 
@@ -130,7 +130,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         majeWS.subscribeTask(taskId);
       }
     } catch (err: any) {
-      const errMsg = err?.response?.data?.detail || err?.message || 'Fehler beim Senden der Nachricht';
+      const errMsg = describeError(err);
       set((state) => ({
         error: errMsg,
         isLoading: false,
