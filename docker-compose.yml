@@ -22,6 +22,9 @@ services:
     restart: always
     ports:
       - "8000:8000"
+    env_file:
+      # Alle Variablen aus .env (Keys, AUTH_REQUIRED, MAJE_KEYS_KEY, Limits …)
+      - .env
     environment:
       - PORT=8000
       - MAJE_ROOT=/maje
@@ -32,6 +35,7 @@ services:
       - JWT_SECRET=${JWT_SECRET:?Bitte JWT_SECRET in .env setzen}
       - ALLOW_ORIGINS=${ALLOW_ORIGINS:-*}
       - ALLOW_ORIGIN_REGEX=${ALLOW_ORIGIN_REGEX:-}
+      - AUTH_REQUIRED=${AUTH_REQUIRED:-false}
       - SANDBOX_MAX_MEMORY_MB=${SANDBOX_MAX_MEMORY_MB:-512}
       - SANDBOX_CPU_QUOTA=${SANDBOX_CPU_QUOTA:-1.0}
       - SANDBOX_TIMEOUT_SECONDS=${SANDBOX_TIMEOUT_SECONDS:-60}

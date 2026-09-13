@@ -73,7 +73,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({ onDone }) => {
             placeholderTextColor={Colors.text.muted}
           />
 
-          <Text style={styles.label}>ZUGANGS-TOKEN</Text>
+          <Text style={styles.label}>ZUGANGS-TOKEN (meist nicht nötig)</Text>
           <TextInput
             style={styles.input}
             value={tok}
@@ -81,12 +81,12 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({ onDone }) => {
             autoCapitalize="none"
             autoCorrect={false}
             secureTextEntry
-            placeholder="JWT-Token einfügen"
+            placeholder="leer lassen, wenn nicht verlangt"
             placeholderTextColor={Colors.text.muted}
           />
 
           <Text style={styles.hint}>
-            Token auf dem Server erzeugen:{'\n'}
+            Nur nötig, wenn auf dem Server AUTH_REQUIRED=true gesetzt ist. Dann Token erzeugen:{'\n'}
             docker compose exec -T maje-backend python -c "from api.middleware.auth import create_token; print(create_token())"
           </Text>
 
