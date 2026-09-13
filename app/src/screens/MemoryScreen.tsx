@@ -35,7 +35,7 @@ export const MemoryScreen: React.FC = () => {
     setIsLoading(true);
     try {
       const data = await api.get('/soul/memory');
-      setMemories(data?.entries || []);
+      setMemories(Array.isArray(data?.entries) ? data.entries : []);
     } catch (e) {
       console.error('Failed to load memories:', e);
     } finally {

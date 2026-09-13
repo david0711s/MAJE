@@ -41,7 +41,10 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({ onDone }) => {
       const ok = await checkConnection();
       setConnected(ok);
       if (!ok) {
-        setError('Verbindung fehlgeschlagen. Läuft das Backend? Stimmt URL & Token?');
+        setError(
+          useSettingsStore.getState().error ||
+            'Verbindung fehlgeschlagen. Nutze die Backend-Adresse mit Port, z.B. http://SERVER-IP:8000 – nicht die Netlify-Seite.',
+        );
       }
     } catch (e: any) {
       setError(e?.message || 'Unbekannter Fehler');

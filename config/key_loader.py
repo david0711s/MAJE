@@ -179,9 +179,5 @@ def collect_current(providers: list[dict], external: dict) -> dict[str, list[str
 
 
 def mask(key: str) -> str:
-    """Mask a key for display, e.g. 'AIzaSy…f3Q2'."""
-    if not key:
-        return ""
-    if len(key) <= 10:
-        return "•••"
-    return f"{key[:4]}…{key[-4:]}"
+    """Vollständig maskiert – der Key ist für das Auge nicht erkennbar."""
+    return "•" * 12 if key else ""

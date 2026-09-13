@@ -49,7 +49,7 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onSelectTask }) 
       ) : (
         <FlatList
           data={tasks}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item, index) => item.id || item.task_id || String(index)}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
             <TaskCard task={item} onPress={() => onSelectTask(item.id)} />

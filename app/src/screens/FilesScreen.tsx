@@ -36,7 +36,7 @@ export const FilesScreen: React.FC = () => {
     setIsLoading(true);
     try {
       const data = await api.get('/files/tree');
-      setFileTree(data.tree || []);
+      setFileTree(Array.isArray(data?.tree) ? data.tree : []);
     } catch (e) {
       console.error('Error fetching file tree:', e);
     } finally {

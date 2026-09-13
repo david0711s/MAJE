@@ -4,6 +4,9 @@ import { api } from '../api/client';
 export interface TaskItem {
   id: string;
   description: string;
+  // Aliase (je nach Backend-Version)
+  task_id?: string;
+  goal?: string;
   mode: 'chat' | 'agent' | 'autonomy';
   status: 'pending' | 'running' | 'completed' | 'failed' | 'stopped';
   created_at: string;
@@ -44,7 +47,7 @@ export const useTaskStore = create<TaskState>((set) => ({
     set({ isLoading: true, error: null });
     try {
       const data = await api.get('/tasks/');
-      set({ tasks: data, isLoading: false });
+      set({ tasks: Array.isArray(data) ? data : [], isLoading: false });
     } catch (err: any) {
       set({
         error: err?.response?.data?.detail || err?.message || 'Fehler beim Laden der Tasks',
@@ -57,7 +60,8 @@ export const useTaskStore = create<TaskState>((set) => ({
     set({ isLoading: true, error: null });
     try {
       const data = await api.get(`/tasks/${taskId}`);
-      set({ currentTask: data, isLoading: false });
+      const task = data && typeof data === 'object' && !Array.isArray(data) ? data : null;
+      set({ currentTask: task, isLoading: false });
     } catch (err: any) {
       set({
         error: err?.response?.data?.detail || err?.message || 'Fehler beim Laden des Task-Details',

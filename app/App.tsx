@@ -26,6 +26,7 @@ import { CostDashboard } from './src/screens/CostDashboard';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { SetupScreen } from './src/screens/SetupScreen';
 import { useSettingsStore } from './src/store/settingsStore';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 
 type TabKey =
   | 'chat'
@@ -144,7 +145,9 @@ export default function App() {
       <StatusBar style="light" />
 
       {/* Screen Content */}
-      <View style={styles.content}>{renderContent()}</View>
+      <View style={styles.content}>
+        <ErrorBoundary key={activeTab}>{renderContent()}</ErrorBoundary>
+      </View>
 
       {/* Linear-style Bottom Navigation Bar */}
       <View style={styles.tabBarWrapper}>

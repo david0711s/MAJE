@@ -45,5 +45,6 @@ def test_placeholder_keys_are_ignored(tmp_path, monkeypatch):
 
 
 def test_mask():
-    assert key_loader.mask("AIzaSyABCDEFGH1234") == "AIza…1234"
-    assert key_loader.mask("short") == "•••"
+    assert set(key_loader.mask("AIzaSyABCDEFGH1234")) == {"•"}
+    assert key_loader.mask("short") == "•" * 12
+    assert key_loader.mask("") == ""

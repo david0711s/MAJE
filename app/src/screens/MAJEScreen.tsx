@@ -33,7 +33,8 @@ export const MAJEScreen: React.FC<{ onNavigateToChat?: () => void }> = ({ onNavi
     setIsLoading(true);
     try {
       const data = await api.get('/ui/');
-      setElements(data || []);
+      const list = Array.isArray(data) ? data : Array.isArray(data?.elements) ? data.elements : [];
+      setElements(list);
     } catch (e) {
       console.error('Failed to load MAJE UI elements:', e);
     } finally {
@@ -99,9 +100,9 @@ export const MAJEScreen: React.FC<{ onNavigateToChat?: () => void }> = ({ onNavi
       ) : (
         <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
           <View style={styles.grid}>
-            {elements.map((el) => (
+            {elements.map((el, idx) => (
               <TouchableOpacity
-                key={el.id}
+                key={el.id || String(idx)}
                 style={[
                   styles.elementCard,
                   el.element_type === 'action' && styles.actionCard,
@@ -111,11 +112,11 @@ export const MAJEScreen: React.FC<{ onNavigateToChat?: () => void }> = ({ onNavi
                 activeOpacity={0.7}
               >
                 <View style={styles.cardTop}>
-                  <Text style={styles.cardType}>{el.element_type.toUpperCase()}</Text>
+                  <Text style={styles.cardType}>{(el.element_type || 'button').toUpperCase()}</Text>
                   <Text style={styles.cardArrow}>›</Text>
                 </View>
 
-                <Text style={styles.cardTitle}>{el.title}</Text>
+                <Text style={styles.cardTitle}>{el.title || '(ohne Titel)'}</Text>
 
                 {el.description && (
                   <Text style={styles.cardDesc} numberOfLines={3}>

@@ -55,11 +55,14 @@ export const ApiKeysCard: React.FC = () => {
   }, []);
 
   const addKey = async (pid: string) => {
-    const value = (inputs[pid] || '').trim();
-    if (!value) return;
+    const raw = (inputs[pid] || '').trim();
+    if (!raw) return;
+    // Mehrere Keys erlaubt: durch Komma, Semikolon, Leerzeichen oder Zeilenumbruch getrennt
+    const keys = raw.split(/[\s,;]+/).map((k) => k.trim()).filter(Boolean);
+    if (!keys.length) return;
     setBusy(pid);
     try {
-      await api.post('/settings/keys', { provider_id: pid, keys: [value] });
+      await api.post('/settings/keys', { provider_id: pid, keys });
       setInputs((s) => ({ ...s, [pid]: '' }));
       await fetchKeys();
     } catch (e: any) {
@@ -75,6 +78,15 @@ export const ApiKeysCard: React.FC = () => {
       await fetchKeys();
     } catch {
       Alert.alert('Fehler', 'Löschen fehlgeschlagen.');
+    }
+  };
+
+  const removeOneKey = async (pid: string, index: number) => {
+    try {
+      await api.delete(`/settings/keys/${pid}`, { params: { index } });
+      await fetchKeys();
+    } catch {
+      Alert.alert('Fehler', 'Key konnte nicht entfernt werden.');
     }
   };
 
@@ -101,8 +113,8 @@ export const ApiKeysCard: React.FC = () => {
     <View style={styles.card}>
       <Text style={styles.cardTitle}>API-KEYS (ZENTRAL & SKALIERBAR)</Text>
       <Text style={styles.cardSubtitle}>
-        Keys werden auf dem Server in config/keys.json gespeichert (chmod 600) und sofort übernommen –
-        ohne Neustart. Angezeigt werden sie nur maskiert.
+        Beliebig viele Keys pro Anbieter – mehrere mit Komma oder neuer Zeile einfügen.
+        Sie werden sofort übernommen und sind danach nur als Punkte sichtbar.
       </Text>
 
       {isLoading ? (
@@ -114,28 +126,48 @@ export const ApiKeysCard: React.FC = () => {
               <View style={styles.providerInfo}>
                 <Text style={styles.providerName}>{p.name}</Text>
                 <Text style={[styles.providerState, p.configured ? styles.ok : styles.missing]}>
-                  {p.configured ? `● ${p.count} Key(s): ${p.keys.join(', ')}` : '○ kein Key'}
+                  {p.configured ? `● ${p.count} Key(s) gespeichert` : '○ kein Key'}
                 </Text>
               </View>
               {p.configured && (
-                <TouchableOpacity onPress={() => removeKeys(p.provider_id)}>
-                  <Text style={styles.remove}>✕</Text>
+                <TouchableOpacity onPress={() => removeKeys(p.provider_id)} hitSlop={8}>
+                  <Text style={styles.remove}>alle ✕</Text>
                 </TouchableOpacity>
               )}
             </View>
 
+            {p.configured && (
+              <View style={styles.keyList}>
+                {p.keys.map((k, i) => (
+                  <View key={i} style={styles.keyChip}>
+                    <Text style={styles.keyChipText}>
+                      Key {i + 1}:  {k}
+                    </Text>
+                    <TouchableOpacity onPress={() => removeOneKey(p.provider_id, i)} hitSlop={8}>
+                      <Text style={styles.keyRemove}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+
             <View style={styles.inputRow}>
               <TextInput
-                style={styles.input}
+                style={[styles.input, styles.inputMulti]}
                 value={inputs[p.provider_id] || ''}
                 onChangeText={(t) => setInputs((s) => ({ ...s, [p.provider_id]: t }))}
-                placeholder={`Neuen ${p.name}-Key eintragen…`}
+                placeholder={`Key(s) für ${p.name} – mehrere mit Komma oder neuer Zeile`}
                 placeholderTextColor={Colors.text.muted}
                 autoCapitalize="none"
                 autoCorrect={false}
                 secureTextEntry
+                multiline
               />
-              <TouchableOpacity style={styles.addBtn} onPress={() => addKey(p.provider_id)} disabled={busy === p.provider_id}>
+              <TouchableOpacity
+                style={styles.addBtn}
+                onPress={() => addKey(p.provider_id)}
+                disabled={busy === p.provider_id}
+              >
                 {busy === p.provider_id ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
@@ -296,6 +328,36 @@ const styles = StyleSheet.create({
     fontSize: Typography.size.xs - 1,
     marginTop: Spacing.xs,
     lineHeight: 15,
+  },
+  keyList: {
+    marginTop: Spacing.xs,
+    gap: 4,
+  },
+  keyChip: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: Colors.bg.base,
+    borderRadius: Spacing.radius.sm,
+    borderWidth: 1,
+    borderColor: Colors.border.subtle,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+  },
+  keyChipText: {
+    color: Colors.text.secondary,
+    fontFamily: Typography.family.mono,
+    fontSize: Typography.size.xs,
+    flex: 1,
+  },
+  keyRemove: {
+    color: Colors.accent.error,
+    fontSize: 13,
+    paddingLeft: Spacing.sm,
+  },
+  inputMulti: {
+    minHeight: 40,
+    textAlignVertical: 'top',
   },
 });
 

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { api, getServerUrl, setServerUrl, getToken, setToken } from '../api/client';
+import { api, getApiClient, getServerUrl, setServerUrl, getToken, setToken } from '../api/client';
 
 interface WhitelistConfig {
   active: boolean;
@@ -81,11 +81,22 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
   checkConnection: async () => {
     try {
-      await api.get('/settings/');
-      set({ isConnected: true, error: null });
-      return true;
+      const client = await getApiClient();
+      // /health is public and returns MAJE JSON – this proves the URL really points to MAJE.
+      const res = await client.get('/health', { timeout: 10000 });
+      const ok = res?.data?.status === 'ok';
+      set({
+        isConnected: ok,
+        error: ok
+          ? null
+          : 'Diese URL ist kein MAJE-Server. Nutze die Backend-Adresse mit Port, z.B. http://SERVER-IP:8000 – nicht die Netlify-Seite.',
+      });
+      return ok;
     } catch {
-      set({ isConnected: false });
+      set({
+        isConnected: false,
+        error: 'Server nicht erreichbar. Prüfe URL, Port und ob das Backend läuft.',
+      });
       return false;
     }
   },

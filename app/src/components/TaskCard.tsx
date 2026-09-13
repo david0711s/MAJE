@@ -34,14 +34,16 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onPress }) => {
       <View style={styles.topRow}>
         <View style={[styles.statusBadge, { borderColor: statusColor, backgroundColor: `${statusColor}1A` }]}>
           <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-          <Text style={[styles.statusText, { color: statusColor }]}>{task.status.toUpperCase()}</Text>
+          <Text style={[styles.statusText, { color: statusColor }]}>
+            {(task.status || 'unbekannt').toUpperCase()}
+          </Text>
         </View>
 
         <Text style={styles.timeText}>{formatRelativeTime(task.created_at)}</Text>
       </View>
 
       <Text style={styles.description} numberOfLines={2}>
-        {task.description}
+        {task.description || task.goal || '(keine Beschreibung)'}
       </Text>
 
       <View style={styles.footer}>

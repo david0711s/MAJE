@@ -28,7 +28,8 @@ export async function setToken(token: string) {
 
 /** Create a fresh axios instance pointing to current server */
 export async function getApiClient() {
-  const base = await getServerUrl();
+  // Normalize: strip trailing slashes so "/chat/message" never becomes "//chat/message"
+  const base = (await getServerUrl()).replace(/\/+$/, '');
   const token = await getToken();
 
   return axios.create({
@@ -58,9 +59,9 @@ export const api = {
     const res = await client.put<T>(path, data);
     return res.data;
   },
-  async delete<T = any>(path: string): Promise<T> {
+  async delete<T = any>(path: string, config?: any): Promise<T> {
     const client = await getApiClient();
-    const res = await client.delete<T>(path);
+    const res = await client.delete<T>(path, config);
     return res.data;
   },
 };
