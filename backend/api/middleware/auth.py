@@ -24,6 +24,12 @@ PUBLIC_PATHS = {"/health", "/docs", "/redoc", "/openapi.json", "/settings/token"
 
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
+        # CORS preflight must NEVER require auth – the browser sends OPTIONS first
+        # (needed because we send an Authorization header). Blocking it would make
+        # every request from the web app fail with "Network Error".
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         # Allow public paths
         if request.url.path in PUBLIC_PATHS or request.url.path.startswith("/docs"):
             return await call_next(request)
