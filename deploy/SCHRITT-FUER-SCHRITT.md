@@ -71,12 +71,15 @@ docker compose restart maje-backend
 **Pflicht:** mindestens einen LLM-Key (Gemini **oder** Groq – beide kostenlos).
 Für Sprache (Whisper) wird ein **Groq-Key** empfohlen.
 
-### A6. Testen
+### A6. Testen & Token
 ```bash
 curl -s http://127.0.0.1:8000/health          # {"status":"ok",...}
-curl -s http://127.0.0.1:8000/settings/token  # JWT-Token (nur localhost!)
+
+# JWT-Token erzeugen (funktioniert immer, auch im Container):
+docker compose exec -T maje-backend python -c "from api.middleware.auth import create_token; print(create_token())"
 ```
 Den Token kopieren – den brauchst du in der App.
+(Alternativ: `curl -s http://127.0.0.1:8000/settings/token` – nur aus dem lokalen/privaten Netz.)
 
 ### A7. Von außen erreichbar machen
 - **Für die native App (http)** reicht Port 8000:
@@ -186,7 +189,7 @@ Danach startet MAJE wie eine normale App – Updates erscheinen automatisch.
 3. `sudo bash deploy/install.sh`
 4. HTTPS aufsetzen: `DOMAIN` in `.env` + `docker compose --profile proxy up -d`
 5. Keys eintragen (App → API-KEYS oder `/opt/MAJE/data/keys/keys.json`)
-6. `curl http://127.0.0.1:8000/settings/token` → Token notieren
+6. Token erzeugen: `docker compose exec -T maje-backend python -c "from api.middleware.auth import create_token; print(create_token())"`
 7. App: `npm install` → `npx expo export --platform web`
 8. `app\dist` zu Netlify hochladen
 9. `ALLOW_ORIGINS=https://<netlify-domain>` in `.env` + `docker compose up -d`

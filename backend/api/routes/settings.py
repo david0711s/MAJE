@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import ipaddress
 from datetime import datetime
 from typing import Optional
 
@@ -153,12 +154,35 @@ async def remove_target(entry_id: str):
 
 # ── Auth token generation (localhost only) ────────────────────────────────────
 
+def _is_local_request(request: Request) -> bool:
+    """True if the request came directly from the host (not from the internet).
+
+    Note: with Docker port mapping, a request to 127.0.0.1:8000 arrives inside the
+    container from the bridge gateway (e.g. 172.18.0.1) – so we accept loopback
+    AND private ranges, but NOT when proxy headers are present (i.e. via Caddy).
+    """
+    host = request.client.host if request.client else ""
+    if host in ("127.0.0.1", "::1", "localhost"):
+        return True
+    if request.headers.get("x-forwarded-for") or request.headers.get("x-real-ip"):
+        return False  # came through a reverse proxy -> treat as remote
+    try:
+        ip = ipaddress.ip_address(host)
+        return ip.is_loopback or ip.is_private
+    except ValueError:
+        return False
+
+
 @router.get("/token")
 async def get_token(request: Request):
-    """Generate a JWT token for the app. Only accessible from localhost."""
-    client_host = request.client.host if request.client else ""
-    if client_host not in ("127.0.0.1", "::1", "localhost"):
-        raise HTTPException(403, "Token generation is only allowed from localhost (use SSH port-forward).")
+    """Generate a JWT token for the app. Only accessible from localhost/private network."""
+    if not _is_local_request(request):
+        raise HTTPException(
+            403,
+            "Token generation is only allowed from localhost. "
+            "Alternative on the server: docker compose exec -T maje-backend "
+            "python -c \"from api.middleware.auth import create_token; print(create_token())\"",
+        )
     return {"token": create_token()}
 
 

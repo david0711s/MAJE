@@ -84,7 +84,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({ onDone }) => {
 
           <Text style={styles.hint}>
             Token auf dem Server erzeugen:{'\n'}
-            curl -s http://127.0.0.1:8000/settings/token
+            docker compose exec -T maje-backend python -c "from api.middleware.auth import create_token; print(create_token())"
           </Text>
 
           <TouchableOpacity style={styles.btn} onPress={handleConnect} disabled={busy} activeOpacity={0.8}>

@@ -42,4 +42,6 @@ docker compose up -d --build
 
 echo "==> Fertig."
 echo "    Health-Check:  curl -s http://127.0.0.1:8000/health"
-echo "    JWT-Token:     curl -s http://127.0.0.1:8000/settings/token"
+echo -n "    JWT-Token:     "
+docker compose exec -T maje-backend python -c "from api.middleware.auth import create_token; print(create_token())" 2>/dev/null \
+  || echo "(später erneut: docker compose exec -T maje-backend python -c \"from api.middleware.auth import create_token; print(create_token())\")"
