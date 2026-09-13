@@ -27,6 +27,7 @@ tailscale funnel status || true
 echo "======================================================"
 echo
 echo "So geht's weiter:"
+echo "  * Adresse jederzeit erneut anzeigen:  bash deploy/show-url.sh"
 echo "  1. Adresse oben kopieren (Form: https://<name>.<tailnet>.ts.net)"
 echo "  2. In der MAJE-Web-App (Netlify) im Einrichtungs-Assistenten"
 echo "     als 'SERVER-URL' eintragen  ->  Verbinden."

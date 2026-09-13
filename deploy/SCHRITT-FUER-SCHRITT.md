@@ -226,6 +226,7 @@ unter derselben `https`-Domain.
    sudo bash deploy/setup-funnel.sh
    ```
    → am Ende steht deine Adresse, z. B. `https://gandalf.tailXXXX.ts.net`
+   Jederzeit erneut anzeigen: `bash deploy/show-url.sh`
 3. `https://maje-bot.netlify.app` öffnen → Assistent ausfüllen:
    - **Server-URL**: die `https://…ts.net`-Adresse
    - **Token**: auf dem Server erzeugen:
