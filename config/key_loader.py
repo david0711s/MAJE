@@ -178,6 +178,26 @@ def collect_current(providers: list[dict], external: dict) -> dict[str, list[str
     return result
 
 
+# Präfix -> Provider-ID (für die Ein-Feld-Eingabe "Key einfügen")
+_PREFIX_MAP: list[tuple[str, str]] = [
+    ("AIza", "gemini"),
+    ("gsk_", "groq"),
+    ("tvly-", "tavily"),
+    ("sk-ant-", "anthropic"),
+    ("sk-or-", "openai"),
+    ("sk-", "openai"),
+]
+
+
+def detect_provider(key: str) -> Optional[str]:
+    """Erkennt den Anbieter am Key-Präfix (None = unbekannt)."""
+    k = (key or "").strip()
+    for prefix, pid in _PREFIX_MAP:
+        if k.startswith(prefix):
+            return pid
+    return None
+
+
 def mask(key: str) -> str:
     """Vollständig maskiert – der Key ist für das Auge nicht erkennbar."""
     return "•" * 12 if key else ""

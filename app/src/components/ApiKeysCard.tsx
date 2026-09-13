@@ -37,6 +37,9 @@ export const ApiKeysCard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [quickKey, setQuickKey] = useState('');
+  const [quickMsg, setQuickMsg] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
   const fetchKeys = async () => {
     setIsLoading(true);
@@ -103,6 +106,23 @@ export const ApiKeysCard: React.FC = () => {
     }
   };
 
+  const addQuickKey = async () => {
+    const key = quickKey.trim();
+    if (!key) return;
+    setBusy('__quick__');
+    setQuickMsg(null);
+    try {
+      const res = await api.post('/settings/keys/auto', { key });
+      setQuickKey('');
+      setQuickMsg(`✅ Als ${res?.name || res?.provider_id}-Key gespeichert`);
+      await fetchKeys();
+    } catch (e: any) {
+      setQuickMsg(describeError(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const makeKey = async () => {
     try {
       const d = await api.get('/settings/keys/newkey');
@@ -114,16 +134,39 @@ export const ApiKeysCard: React.FC = () => {
 
   return (
     <View style={styles.card}>
-      <Text style={styles.cardTitle}>API-KEYS (ZENTRAL & SKALIERBAR)</Text>
+      <Text style={styles.cardTitle}>API-KEYS</Text>
       <Text style={styles.cardSubtitle}>
-        Beliebig viele Keys pro Anbieter – mehrere mit Komma oder neuer Zeile einfügen.
-        Sie werden sofort übernommen und sind danach nur als Punkte sichtbar.
+        Key einfügen – der Anbieter wird automatisch erkannt und dauerhaft auf dem Server
+        gespeichert. Mehrere Keys sind möglich.
       </Text>
+
+      <View style={styles.inputRow}>
+        <TextInput
+          style={styles.input}
+          value={quickKey}
+          onChangeText={setQuickKey}
+          placeholder="Key hier einfügen (gsk_… / AIza… / tvly-…)"
+          placeholderTextColor={Colors.text.muted}
+          autoCapitalize="none"
+          autoCorrect={false}
+          secureTextEntry
+        />
+        <TouchableOpacity style={styles.addBtn} onPress={addQuickKey} disabled={busy === '__quick__'}>
+          {busy === '__quick__' ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.addBtnText}>+</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+      {!!quickMsg && (
+        <Text style={[styles.quickMsg, !quickMsg.startsWith('✅') && styles.quickErr]}>{quickMsg}</Text>
+      )}
 
       {isLoading ? (
         <ActivityIndicator size="small" color={Colors.accent.primary} />
       ) : (
-        providers.map((p) => (
+        providers.filter((p) => p.configured || showAll).map((p) => (
           <View key={p.provider_id} style={styles.providerRow}>
             <View style={styles.providerHeader}>
               <View style={styles.providerInfo}>
@@ -154,32 +197,46 @@ export const ApiKeysCard: React.FC = () => {
               </View>
             )}
 
-            <View style={styles.inputRow}>
-              <TextInput
-                style={[styles.input, styles.inputMulti]}
-                value={inputs[p.provider_id] || ''}
-                onChangeText={(t) => setInputs((s) => ({ ...s, [p.provider_id]: t }))}
-                placeholder={`Key(s) für ${p.name} – mehrere mit Komma oder neuer Zeile`}
-                placeholderTextColor={Colors.text.muted}
-                autoCapitalize="none"
-                autoCorrect={false}
-                secureTextEntry
-                multiline
-              />
-              <TouchableOpacity
-                style={styles.addBtn}
-                onPress={() => addKey(p.provider_id)}
-                disabled={busy === p.provider_id}
-              >
-                {busy === p.provider_id ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={styles.addBtnText}>+</Text>
-                )}
-              </TouchableOpacity>
-            </View>
+            {showAll && (
+              <View style={styles.inputRow}>
+                <TextInput
+                  style={[styles.input, styles.inputMulti]}
+                  value={inputs[p.provider_id] || ''}
+                  onChangeText={(t) => setInputs((s) => ({ ...s, [p.provider_id]: t }))}
+                  placeholder={`Key(s) für ${p.name} – mehrere mit Komma oder neuer Zeile`}
+                  placeholderTextColor={Colors.text.muted}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  secureTextEntry
+                  multiline
+                />
+                <TouchableOpacity
+                  style={styles.addBtn}
+                  onPress={() => addKey(p.provider_id)}
+                  disabled={busy === p.provider_id}
+                >
+                  {busy === p.provider_id ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.addBtnText}>+</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         ))
+      )}
+
+      {!isLoading && providers.length > 0 && (
+        <TouchableOpacity
+          style={styles.toggleBtn}
+          onPress={() => setShowAll((v) => !v)}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.toggleText}>
+            {showAll ? 'Weniger anzeigen' : 'Weitere Anbieter / manuell einstellen'}
+          </Text>
+        </TouchableOpacity>
       )}
 
       {!!loadError && (
@@ -191,7 +248,7 @@ export const ApiKeysCard: React.FC = () => {
         </View>
       )}
 
-      {encryption && (
+      {showAll && encryption && (
         <View style={styles.encBox}>
           <Text style={styles.encText}>
             Datei-Verschlüsselung: {encryption.enabled ? 'AN 🔒' : 'AUS'}
@@ -241,6 +298,24 @@ const styles = StyleSheet.create({
     fontSize: Typography.size.xs,
     marginBottom: Spacing.sm,
     lineHeight: 16,
+  },
+  quickMsg: {
+    color: Colors.accent.success,
+    fontSize: Typography.size.xs,
+    marginTop: Spacing.xs,
+    lineHeight: 16,
+  },
+  quickErr: {
+    color: Colors.accent.error,
+  },
+  toggleBtn: {
+    marginTop: Spacing.sm,
+    alignSelf: 'flex-start',
+  },
+  toggleText: {
+    color: Colors.accent.primary,
+    fontSize: Typography.size.xs,
+    fontWeight: '600',
   },
   providerRow: {
     borderTopWidth: 1,

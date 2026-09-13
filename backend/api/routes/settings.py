@@ -309,6 +309,34 @@ async def delete_api_keys(provider_id: str, index: Optional[int] = None):
     return {"deleted": True, "provider_id": provider_id}
 
 
+class KeyAuto(BaseModel):
+    key: str
+    provider_id: Optional[str] = None
+
+
+@router.post("/keys/auto")
+async def add_key_auto(body: KeyAuto):
+    """Ein-Feld-Eingabe: Key einfügen – Anbieter wird am Präfix erkannt."""
+    key = (body.key or "").strip()
+    if not key:
+        raise HTTPException(400, "Kein Key angegeben.")
+
+    pid = body.provider_id or key_loader.detect_provider(key)
+    if not pid:
+        raise HTTPException(
+            400,
+            "Key-Typ nicht automatisch erkannt – bitte unten den passenden Anbieter auswählen.",
+        )
+
+    data = key_loader.load_keys(include_env=False)
+    data.setdefault(pid, [])
+    if key not in data[pid]:
+        data[pid].append(key)
+    key_loader.save_keys(data)
+    _reload_keys()
+    return {"added": True, "provider_id": pid, "name": key_loader.PROVIDER_LABELS.get(pid, pid)}
+
+
 class EncryptionToggle(BaseModel):
     enabled: bool
 

@@ -44,6 +44,14 @@ def test_placeholder_keys_are_ignored(tmp_path, monkeypatch):
     assert loaded["gemini"] == ["real-key"]
 
 
+def test_detect_provider():
+    assert key_loader.detect_provider("gsk_abc123") == "groq"
+    assert key_loader.detect_provider("AIzaSyABCDEF") == "gemini"
+    assert key_loader.detect_provider("tvly-dev-abc") == "tavily"
+    assert key_loader.detect_provider("sk-ant-xyz") == "anthropic"
+    assert key_loader.detect_provider("voellig-unbekannt") is None
+
+
 def test_mask():
     assert set(key_loader.mask("AIzaSyABCDEFGH1234")) == {"•"}
     assert key_loader.mask("short") == "•" * 12
