@@ -102,5 +102,7 @@ services:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - /opt/MAJE/caddy/data:/data
       - /opt/MAJE/caddy/config:/config
+      # Web-Oberfläche (nur nötig für Variante B: alles auf dem Server)
+      - /opt/MAJE/web:/srv/web:ro
     depends_on:
       - maje-backend

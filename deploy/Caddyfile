@@ -1,8 +1,31 @@
-# MAJE – Caddy Reverse Proxy (automatisches HTTPS)
-# Wird nur mit `docker compose --profile proxy up -d` gestartet.
-# DOMAIN wird aus der Umgebung übernommen (.env).
+# MAJE – Caddy Reverse Proxy
+# Zwei Betriebsarten:
+#
+#  A) Nur Backend (Netlify liefert die Oberfläche):
+#     -> siehe "deploy/README.md", Schritt C
+#  B) ALLES auf dem Server (empfohlen: eine Adresse, kein CORS):
+#     Caddy liefert die Web-Oberfläche aus /srv/web UND proxyt die API.
+#
+# Aktivieren mit:  docker compose --profile proxy up -d
+# Web-Dateien bereitstellen:  cd app && npm run build:web
+#                             -> Inhalt von app/dist nach /opt/MAJE/web kopieren
+
 {$DOMAIN} {
 	encode gzip
-	# WebSocket-Upgrades (wss://…/chat/ws) leitet Caddy automatisch weiter.
-	reverse_proxy maje-backend:8000
+
+	# ── API + WebSockets zum Backend ──────────────────────────────────────────
+	@api path /chat /chat/* /settings /settings/* /tasks /tasks/* /files /files/* \
+	          /soul /soul/* /ui /ui/* /costs /costs/* /autonomy /autonomy/* \
+	          /voice /voice/* /health /docs /docs/* /redoc /openapi.json
+	handle @api {
+		reverse_proxy maje-backend:8000
+	}
+
+	# ── Web-Oberfläche (statische Dateien) ────────────────────────────────────
+	handle {
+		root * /srv/web
+		try_files {path} /index.html
+		file_server
+	}
 }
+

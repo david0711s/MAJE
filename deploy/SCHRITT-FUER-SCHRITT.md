@@ -182,6 +182,36 @@ Danach startet MAJE wie eine normale App – Updates erscheinen automatisch.
 
 ---
 
+## TEIL C2 – Ohne Netlify: alles auf dem Server (eine einzige Adresse = am einfachsten)
+
+Kein CORS, kein mixed-content, keine zweite Seite. Caddy liefert **Oberfläche UND API**
+unter derselben `https`-Domain.
+
+1. Web-Oberfläche bauen (PC):
+   ```powershell
+   cd C:\Users\david\Desktop\Code\Python\MAJE\app
+   npm install
+   npm run build:web
+   ```
+2. `app\dist` auf den Server kopieren:
+   ```powershell
+   scp -r app\dist\* root@<server-ip>:/opt/MAJE/web/
+   ```
+   (oder per GitHub/rsync – Hauptsache der Inhalt landet in `/opt/MAJE/web`)
+3. HTTPS aktivieren (Server):
+   ```bash
+   # DNS: A-Record  maje.deinedomain.de -> <server-ip>
+   nano /opt/MAJE/.env          # DOMAIN=maje.deinedomain.de
+   docker compose --profile proxy up -d
+   ```
+4. Öffnen: `https://maje.deinedomain.de`
+   Im Einrichtungs-Assistenten als **Server-URL** einfach **dieselbe Adresse** eintragen.
+
+> Voraussetzung: Ports 80/443 frei (siehe Fehlersuche zu Apache).
+> Updates: neu bauen, `dist` erneut kopieren – fertig (kein Netlify nötig).
+
+---
+
 ## Kurz-Checkliste (Reihenfolge)
 
 1. `ssh root@<server-ip>` → Docker installieren
