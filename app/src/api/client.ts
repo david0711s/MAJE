@@ -8,7 +8,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const BASE_URL_KEY = 'maje_server_url';
 const TOKEN_KEY    = 'maje_jwt_token';
 
-export const DEFAULT_SERVER = 'http://localhost:8000';
+// Kann beim (Web-)Build vorbelegt werden, damit die Server-URL nicht getippt werden muss:
+//   EXPO_PUBLIC_DEFAULT_SERVER=https://maje-xxxx.ts.net npm run build:web
+// (oder in Netlify unter Site configuration -> Environment variables)
+export const DEFAULT_SERVER: string =
+  process.env.EXPO_PUBLIC_DEFAULT_SERVER || 'http://localhost:8000';
 
 export async function getServerUrl(): Promise<string> {
   return (await AsyncStorage.getItem(BASE_URL_KEY)) ?? DEFAULT_SERVER;

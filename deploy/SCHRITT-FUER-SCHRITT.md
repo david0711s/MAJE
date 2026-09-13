@@ -212,6 +212,43 @@ unter derselben `https`-Domain.
 
 ---
 
+## TEIL D – Netlify-Oberfläche + HTTPS-Backend, OHNE Apache anzufassen (dein Setup)
+
+- **Oberfläche:** `https://maje-bot.netlify.app` (Netlify ↔ GitHub-Repo, Base directory `app`)
+- **Backend:** IONOS-Server, HTTPS per **Tailscale Funnel** → Apache bleibt unverändert
+
+1. Server aktualisieren:
+   ```bash
+   cd /opt/MAJE && git pull && docker compose up -d --build
+   ```
+2. HTTPS-Funnel einrichten (**ein** Befehl):
+   ```bash
+   sudo bash deploy/setup-funnel.sh
+   ```
+   → am Ende steht deine Adresse, z. B. `https://gandalf.tailXXXX.ts.net`
+3. `https://maje-bot.netlify.app` öffnen → Assistent ausfüllen:
+   - **Server-URL**: die `https://…ts.net`-Adresse
+   - **Token**: auf dem Server erzeugen:
+     ```bash
+     docker compose exec -T maje-backend python -c "from api.middleware.auth import create_token; print(create_token())"
+     ```
+   - **API-Keys**: eintragen → werden **dauerhaft auf dem Server** gespeichert
+4. Fertig. Optional die URL vorbelegen, damit sie nie getippt werden muss:
+   - Netlify → *Site configuration → Environment variables* → `EXPO_PUBLIC_DEFAULT_SERVER` = deine ts.net-Adresse, **oder**
+   - lokal: `EXPO_PUBLIC_DEFAULT_SERVER="https://….ts.net" npm run build:web`
+
+**Dauerhafte Speicherung (musst du nie neu eintragen):**
+| Was | Wo gespeichert | Bleibt erhalten bei |
+|---|---|---|
+| API-Keys | `/opt/MAJE/data/keys/keys.json` (Docker-Volume) | Neustart, Update, Rebuild |
+| Server-URL + Token | Browser-Speicher der Netlify-Seite | Reload, App-Neustart |
+| Sandbox-/Whitelist-Einstellungen | `/opt/MAJE/data/soul/maje.db` (SQLite) | Neustart, Update |
+
+Der Einrichtungs-Assistent erscheint **nur**, wenn noch nichts gespeichert ist oder die
+URL kein MAJE-Server ist – ein kurz offline-Server zeigt ihn **nicht** mehr.
+
+---
+
 ## Kurz-Checkliste (Reihenfolge)
 
 1. `ssh root@<server-ip>` → Docker installieren

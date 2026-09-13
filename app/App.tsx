@@ -61,14 +61,18 @@ export default function App() {
 
   const initialized = useSettingsStore((s) => s.initialized);
   const isConnected = useSettingsStore((s) => s.isConnected);
+  const token = useSettingsStore((s) => s.token);
+  const wrongServer = useSettingsStore((s) => s.wrongServer);
   const [setupSkipped, setSetupSkipped] = useState(false);
 
   const [activeTab, setActiveTab] = useState<TabKey>('chat');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [soulSubTab, setSoulSubTab] = useState<'soul' | 'memory'>('soul');
 
-  // Erst-Einrichtung automatisch anzeigen, solange keine Verbindung besteht
-  if (initialized && !isConnected && !setupSkipped) {
+  // Einrichtung nur zeigen, wenn noch nichts gespeichert wurde oder die URL
+  // offensichtlich kein MAJE-Server ist. Bei kurzzeitig offline laufen die
+  // gespeicherten Einstellungen (URL, Token, Keys) normal weiter.
+  if (initialized && !setupSkipped && !isConnected && (!token || wrongServer)) {
     return <SetupScreen onDone={() => setSetupSkipped(true)} />;
   }
 

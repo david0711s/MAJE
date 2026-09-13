@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { api, getApiClient, getServerUrl, setServerUrl, getToken, setToken } from '../api/client';
+import { api, getApiClient, getServerUrl, setServerUrl, getToken, setToken, DEFAULT_SERVER } from '../api/client';
 
 interface WhitelistConfig {
   active: boolean;
@@ -19,6 +19,7 @@ interface SettingsState {
   token: string;
   isConnected: boolean;
   initialized: boolean;
+  wrongServer: boolean;
   whitelist: WhitelistConfig;
   sandbox: SandboxConfig;
   apiKeysStatus: Array<{ provider: string; configured: boolean }>;
@@ -35,10 +36,11 @@ interface SettingsState {
 }
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({
-  serverUrl: 'http://localhost:8000',
+  serverUrl: DEFAULT_SERVER,
   token: '',
   isConnected: false,
   initialized: false,
+  wrongServer: false,
   whitelist: {
     active: true,
     allowed_numbers: [],
@@ -87,16 +89,15 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       const ok = res?.data?.status === 'ok';
       set({
         isConnected: ok,
+        wrongServer: !ok,
         error: ok
           ? null
-          : 'Diese URL ist kein MAJE-Server. Nutze die Backend-Adresse mit Port, z.B. http://SERVER-IP:8000 – nicht die Netlify-Seite.',
+          : 'Diese URL ist kein MAJE-Server. Nutze die Backend-Adresse (z.B. https://…ts.net) – nicht die Netlify-Seite.',
       });
       return ok;
     } catch {
-      set({
-        isConnected: false,
-        error: 'Server nicht erreichbar. Prüfe URL, Port und ob das Backend läuft.',
-      });
+      // Network error (server offline / no route) – keep the saved settings.
+      set({ isConnected: false, wrongServer: false, error: null });
       return false;
     }
   },
