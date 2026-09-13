@@ -4,14 +4,25 @@ MAJE – SQLite DB (persistent backup for settings, whitelist, UI elements, memo
 from __future__ import annotations
 
 import os
+from pathlib import Path
 import aiosqlite
 from loguru import logger
 
-DB_PATH = os.getenv("SQLITE_PATH", "/maje/soul/maje.db")
+def _resolve_db_path() -> str:
+    path = os.getenv("SQLITE_PATH")
+    if not path:
+        root = os.getenv("MAJE_ROOT")
+        if not root or (os.name == "nt" and root == "/maje"):
+            root = str(Path(__file__).resolve().parent.parent.parent / "data")
+        path = str(Path(root) / "soul" / "maje.db")
+    return path
+
+DB_PATH = _resolve_db_path()
 
 
 async def init_db():
     """Create all tables if they don't exist."""
+    Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
     async with aiosqlite.connect(DB_PATH) as db:
         await db.executescript("""
             CREATE TABLE IF NOT EXISTS settings (

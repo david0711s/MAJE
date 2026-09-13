@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Create non-root user
 RUN useradd -m -u 1000 maje && \
     mkdir -p /maje/scripts /maje/tools /maje/skills /maje/files \
-             /maje/soul/memory /maje/workspace && \
+             /maje/soul/memory /maje/workspace /maje/keys && \
     chown -R maje:maje /maje
 
 # Install Python dependencies

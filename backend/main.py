@@ -7,8 +7,16 @@ import json
 import os
 import sys
 
-# Make the config directory importable
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+# Make backend and repo root importable
+_BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+_REPO_ROOT_STR = os.path.abspath(os.path.join(_BACKEND_DIR, ".."))
+if _BACKEND_DIR not in sys.path:
+    sys.path.insert(0, _BACKEND_DIR)
+if _REPO_ROOT_STR not in sys.path:
+    sys.path.insert(0, _REPO_ROOT_STR)
+
+from dotenv import load_dotenv
+load_dotenv()
 
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -32,7 +40,14 @@ from api.routes import (
     voice,
 )
 
-MAJE_ROOT = os.getenv("MAJE_ROOT", "/maje")
+# Portable default for MAJE_ROOT: ./data inside repo root if unset or on Windows /maje
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+_DEFAULT_DATA = _REPO_ROOT / "data"
+
+if not os.getenv("MAJE_ROOT") or (os.name == "nt" and os.getenv("MAJE_ROOT") == "/maje"):
+    os.environ["MAJE_ROOT"] = str(_DEFAULT_DATA)
+
+MAJE_ROOT = os.getenv("MAJE_ROOT")
 
 
 def _ensure_dirs():
@@ -114,3 +129,12 @@ app.include_router(voice.router,        prefix="/voice",      tags=["Voice"])
 async def health():
     redis_ok = await redis_client.ping()
     return {"status": "ok", "redis": redis_ok, "version": "3.0.0"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.getenv("PORT", 8000))
+    host = os.getenv("HOST", "0.0.0.0")
+    logger.info(f"🚀 Starte MAJE Backend auf http://{host}:{port}")
+    logger.info(f"📖 Swagger-Doku: http://localhost:{port}/docs")
+    uvicorn.run("main:app", host=host, port=port, reload=True)

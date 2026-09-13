@@ -12,10 +12,25 @@ import time
 from typing import AsyncIterator, Optional
 from dataclasses import dataclass, field
 
-import google.generativeai as genai
-from groq import AsyncGroq
-from openai import AsyncOpenAI
-import anthropic
+try:
+    import google.generativeai as genai
+except ImportError:
+    genai = None
+
+try:
+    from groq import AsyncGroq
+except ImportError:
+    AsyncGroq = None
+
+try:
+    from openai import AsyncOpenAI
+except ImportError:
+    AsyncOpenAI = None
+
+try:
+    import anthropic
+except ImportError:
+    anthropic = None
 from loguru import logger
 from tenacity import retry, stop_after_attempt, wait_exponential
 

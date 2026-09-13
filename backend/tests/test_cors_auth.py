@@ -54,6 +54,7 @@ def test_health_is_public():
     assert resp.json()["status"] == "ok"
 
 
-def test_normal_request_still_requires_auth():
+def test_normal_request_still_requires_auth(monkeypatch):
+    monkeypatch.setenv("AUTH_REQUIRED", "true")
     resp = client.get("/settings/", headers={"Origin": "https://maje-bot.netlify.app"})
     assert resp.status_code == 401

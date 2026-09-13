@@ -16,6 +16,10 @@ from loguru import logger
 JWT_SECRET = os.getenv("JWT_SECRET", "CHANGE_ME_IN_PRODUCTION_USE_LONG_RANDOM_STRING")
 JWT_ALGORITHM = "HS256"
 
+def is_auth_required() -> bool:
+    """Set AUTH_REQUIRED=true in .env on production servers. By default false so you can start right away."""
+    return os.getenv("AUTH_REQUIRED", "false").lower() in ("true", "1", "yes")
+
 # Routes that don't require auth.
 # /settings/token is intentionally public BUT restricted to localhost inside the handler,
 # so the very first JWT can be bootstrapped without a chicken-and-egg problem.
@@ -36,6 +40,11 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         # Allow WebSocket upgrades (auth handled inside WS handler)
         if request.headers.get("upgrade", "").lower() == "websocket":
+            return await call_next(request)
+
+        # When auth is disabled (local development / on the go), pass through
+        if not is_auth_required():
+            request.state.user = {"sub": "local_user", "type": "access"}
             return await call_next(request)
 
         auth_header = request.headers.get("Authorization", "")
@@ -60,6 +69,8 @@ def create_token(user_id: str = "maje_user") -> str:
 
 def verify_ws_token(token: str) -> bool:
     """Verify a token for WebSocket connections."""
+    if not is_auth_required():
+        return True
     try:
         jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         return True
